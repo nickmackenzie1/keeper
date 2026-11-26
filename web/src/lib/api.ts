@@ -1,0 +1,56 @@
+import { getMeta } from "./db";
+import type { BarcodeLookup, TmdbHit } from "./types";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public kind: "offline" | "login_required" | "unauthorized" | "server",
+    public status = 0,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Same-origin call to the Keeper server. Works in pages and in the service worker.
+ * Cloudflare Access answers an expired session with a redirect to its login page;
+ * `redirect: "manual"` lets us spot that instead of failing with a vague CORS error.
+ */
+export async function api<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+  const t = token ?? (await getMeta("token")) ?? "";
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      ...init,
+      redirect: "manual",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}`, ...(init.headers ?? {}) },
+    });
+  } catch {
+    throw new ApiError("Can't reach Keeper", "offline");
+  }
+  if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
+    throw new ApiError("Sign in again", "login_required", res.status);
+  }
+  if (res.status === 401) throw new ApiError("Wrong access code", "unauthorized", 401);
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    // e.g. an HTML login page served with 200 by a proxy
+    throw new ApiError("Sign in again", "login_required", res.status);
+  }
+  const body = await res.json();
+  if (!res.ok) throw new ApiError(body?.error ?? `Error ${res.status}`, "server", res.status);
+  return body as T;
+}
+
+export const searchTmdb = (q: string) =>
+  api<{ results: TmdbHit[] }>(`/search?q=${encodeURIComponent(q)}`).then((r) => r.results);
+
+export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | null }>(`/movie/${id}`);
+
+export const lookupBarcode = (upc: string) => api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}`);
+
+export const listDevices = () =>
+  api<{ devices: { device_id: string; name: string | null; last_sync_at: number; days_since_sync: number }[] }>(
+    "/devices",
+  );

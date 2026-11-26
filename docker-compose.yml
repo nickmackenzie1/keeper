@@ -1,0 +1,25 @@
+services:
+  keeper:
+    build: .
+    container_name: keeper
+    restart: unless-stopped
+    env_file: .env
+    # Only reachable on your LAN (for testing) and through the tunnel below.
+    # Remove this `ports` block if you want it reachable ONLY via Cloudflare.
+    ports:
+      - "8787:8787"
+    volumes:
+      # keeper.db lives here — include this folder in Hyper Backup.
+      - /volume1/docker/keeper/data:/data
+
+  # Cloudflare Tunnel: the NAS dials OUT to Cloudflare, so no router ports are opened.
+  # Cloudflare Access (set up in the dashboard) blocks everyone except your two emails.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: keeper-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - keeper

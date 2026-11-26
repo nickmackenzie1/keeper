@@ -1,0 +1,106 @@
+import { useState } from "preact/hooks";
+import { copiesFor, deleteCopy, deleteMovie, getMovie, saveCopy } from "../lib/db";
+import { FORMATS, FORMAT_LABEL, FORMAT_RANK, FORMAT_SHORT, type Copy } from "../lib/types";
+import { Poster } from "./Poster";
+import { IconTrash } from "./icons";
+import { go, useData } from "./util";
+
+export function MovieDetail({ id }: { id: string }) {
+  const data = useData(async () => ({ movie: await getMovie(id), copies: await copiesFor(id) }), [id]);
+  if (!data) return <div class="screen" />;
+  const { movie, copies } = data;
+  if (!movie) {
+    return (
+      <div class="screen">
+        <div class="screen-body empty">
+          <p>That movie isn't in your collection anymore.</p>
+          <a class="btn" href="#/shelf">Back to collection</a>
+        </div>
+      </div>
+    );
+  }
+  const sorted = copies.slice().sort((a, b) => FORMAT_RANK[b.format] - FORMAT_RANK[a.format]);
+
+  return (
+    <div class="screen">
+      <header class="screen-head">
+        <button class="btn ghost" onClick={() => history.back()}>‹ Back</button>
+      </header>
+      <div class="screen-body">
+        <div class="detail-head">
+          <Poster movie={movie} class="detail-poster" />
+          <div class="stack">
+            <h2>{movie.title}</h2>
+            <span class="muted">{[movie.year, movie.runtime ? `${movie.runtime} min` : null].filter(Boolean).join(" · ")}</span>
+            <div class="row wrap">
+              {sorted.map((c) => <span key={c.id} class="chip" data-format={c.format}>{FORMAT_SHORT[c.format]}</span>)}
+            </div>
+          </div>
+        </div>
+        {movie.overview && <p class="overview">{movie.overview}</p>}
+
+        <h3>Your copies</h3>
+        <ul class="copies">
+          {sorted.map((c) => <CopyEditor key={c.id} copy={c} />)}
+        </ul>
+        <a class="btn block" href={`#/add?movie=${movie.id}`}>+ Add another copy</a>
+
+        <button
+          class="btn danger block"
+          onClick={async () => {
+            if (confirm(`Remove ${movie.title} and all its copies from the collection?`)) {
+              await deleteMovie(movie);
+              go("#/shelf");
+            }
+          }}
+        >
+          Remove from collection
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CopyEditor({ copy }: { copy: Copy }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(copy);
+  const set = <K extends keyof Copy>(k: K, v: Copy[K]) => setDraft({ ...draft, [k]: v });
+  const save = async (next: Copy) => {
+    const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = next;
+    await saveCopy(rest);
+  };
+
+  return (
+    <li class="copy">
+      <div class="row between">
+        <span class="stack">
+          <b>{[FORMAT_LABEL[copy.format], copy.edition].filter(Boolean).join(" · ")}</b>
+          <span class="muted">{[copy.location, copy.added_by ? `added by ${copy.added_by}` : null].filter(Boolean).join(" · ") || "—"}</span>
+        </span>
+        <button class="btn ghost" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Done" : "Edit"}</button>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" checked={copy.upgrade_wanted} onChange={(e) => void save({ ...copy, upgrade_wanted: (e.target as HTMLInputElement).checked })} />
+        Want to upgrade this one
+      </label>
+      {open && (
+        <div class="stack gap">
+          <div class="seg">
+            {FORMATS.map((f) => (
+              <button key={f} type="button" class={draft.format === f ? "on" : ""} aria-pressed={draft.format === f} onClick={() => set("format", f)}>{FORMAT_LABEL[f]}</button>
+            ))}
+          </div>
+          <label class="field">Edition<input value={draft.edition ?? ""} onInput={(e) => set("edition", (e.target as HTMLInputElement).value || null)} /></label>
+          <label class="field">Where it lives<input value={draft.location ?? ""} onInput={(e) => set("location", (e.target as HTMLInputElement).value || null)} /></label>
+          <label class="field">Notes<input value={draft.notes ?? ""} onInput={(e) => set("notes", (e.target as HTMLInputElement).value || null)} /></label>
+          <div class="row">
+            <button class="btn primary grow" onClick={async () => { await save(draft); setOpen(false); }}>Save</button>
+            <button class="btn danger icon-btn" aria-label="Delete this copy" onClick={async () => { if (confirm("Delete this copy?")) await deleteCopy(copy); }}>
+              <IconTrash />
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}

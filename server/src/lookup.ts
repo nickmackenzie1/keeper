@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { db } from "./db.js";
 import { sight } from "./sightings.js";
 import { posterColors } from "./colors.js";
+import { recordBarcodeAnswer } from "./discogs.js";
 
 const TMDB = config.tmdbBase;
 
@@ -76,10 +77,15 @@ export async function movieDetails(id: number) {
 }
 
 export async function searchMovies(query: string, year?: number): Promise<MovieHit[]> {
-  const params: Record<string, string> = { query, include_adult: "false" };
+  return (await searchMoviesPage(query, year, 1)).results.slice(0, 10);
+}
+
+/** One page (20 results) of a TMDB search, and whether there are more. */
+export async function searchMoviesPage(query: string, year: number | undefined, page: number) {
+  const params: Record<string, string> = { query, include_adult: "false", page: String(page) };
   if (year) params.year = String(year);
   const data = await tmdb("/search/movie", params);
-  return (data.results ?? []).slice(0, 10).map(toHit);
+  return { results: ((data.results ?? []) as any[]).map(toHit), page, more: page < Math.min(Number(data.total_pages ?? 1), 20) };
 }
 
 /** Guess the disc format from a retail product title like "The Matrix [Blu-ray + Digital]". */
@@ -132,7 +138,8 @@ lookupRouter.get("/search", async (req, res, next) => {
     const q = String(req.query.q ?? "").trim();
     if (!q) { res.status(400).json({ error: "missing q" }); return; }
     const year = req.query.year ? Number(req.query.year) : undefined;
-    res.json({ results: await searchMovies(cleanTitle(q) || q, year) });
+    const page = Math.max(1, Math.min(20, Number(req.query.page) || 1));
+    res.json(await searchMoviesPage(cleanTitle(q) || q, year, page));
   } catch (e) { next(e); }
 });
 
@@ -164,8 +171,11 @@ lookupRouter.get("/barcode/:upc", async (req, res, next) => {
   try {
     const upc = req.params.upc.replace(/\D/g, "");
     if (upc.length < 8) { res.status(400).json({ error: "invalid barcode" }); return; }
+    // Records first: Discogs only knows music, so a hit there means it's an album.
+    const record = await recordBarcodeAnswer(upc, req.query.store === "1");
+    if (record) { res.json(record); return; }
     const product = await upcLookup(upc);
-    if (!product) { res.json({ barcode: upc, product_title: null, format: null, candidates: [] }); return; }
+    if (!product) { res.json({ kind: "movie", barcode: upc, product_title: null, format: null, candidates: [] }); return; }
     const title = cleanTitle(product.title);
     const candidates: (Awaited<ReturnType<typeof searchMovies>>[number] & { palette?: unknown })[] = title ? await searchMovies(title) : [];
     // The reveal screen uses the top match's poster colours.
@@ -174,6 +184,7 @@ lookupRouter.get("/barcode/:upc", async (req, res, next) => {
     // Only scans from the store screens (?store=1) count — not adding discs at home.
     const rarity = candidates[0] && req.query.store === "1" ? sight(candidates[0].tmdb_id, candidates[0].title, "barcode") : null;
     res.json({
+      kind: "movie",
       barcode: upc,
       product_title: product.title,
       format: detectFormat(product.title),

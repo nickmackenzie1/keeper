@@ -3,6 +3,8 @@ import { config } from "./config.js";
 import { db } from "./db.js";
 import { cleanTitle, movieDetails, outbound, searchMovies } from "./lookup.js";
 import { sight, type Rarity } from "./sightings.js";
+import { masterDetails, searchAlbums, sightKey, type AlbumHit } from "./discogs.js";
+import { coverColors } from "./colors.js";
 
 /**
  * Shelf scan: a photo of DVD/Blu-ray spines → Claude reads the titles and spots
@@ -27,13 +29,15 @@ List every disc whose title you can read, left to right, top to bottom. For each
 Skip anything you can't read at all. Don't invent titles.
 Reply with ONLY a JSON array, no other text.`;
 
-const COVER_PROMPT = `This photo shows one DVD, Blu-ray or 4K disc case (front cover, back or spine).
+const COVER_PROMPT = `This photo shows one item: a DVD, Blu-ray or 4K disc case, OR a music record (vinyl LP/single sleeve, CD or cassette) — front, back or spine.
 
-Identify the movie or show. Reply with ONLY a JSON array containing one object with:
-- "title": the title as printed (no format words like "Blu-ray")
+Identify it. Reply with ONLY a JSON array containing one object with:
+- "kind": "movie" for films/TV, "album" for music
+- "artist": for music, the artist or band; for movies null
+- "title": the movie/show or album title as printed (no format words like "Blu-ray" or "LP")
 - "year": release year if printed or you are confident, else null
-- "format": "dvd", "bluray", "uhd" (4K) or "unknown" — from the case logo/colour
-- "label": notable distributor/label (Criterion, Arrow, Scream Factory…), else null
+- "format": movies: "dvd", "bluray", "uhd" (4K) or "unknown"; music: "vinyl", "cd", "cassette" or "unknown"
+- "label": notable distributor or record label, else null
 - "edition": e.g. "steelbook", "special edition", "box set", else null
 - "collector": true if collectors seek this exact release, else false
 - "collector_reason": a few words why, else null
@@ -42,6 +46,8 @@ Identify the movie or show. Reply with ONLY a JSON array containing one object w
 If you can't identify it, reply with [].`;
 
 type Spine = {
+  kind?: "movie" | "album";
+  artist?: string | null;
   title: string;
   year: number | null;
   format: "dvd" | "bluray" | "uhd" | "unknown";
@@ -140,6 +146,21 @@ shelfRouter.post("/shelf", async (req, res, next) => {
     const spines = await readSpines(image, String(req.body?.media_type ?? "image/jpeg"), cover ? COVER_PROMPT : PROMPT);
 
     const results = await pool(spines.slice(0, 60), 5, async (s) => {
+      if (s.kind === "album") {
+        let album: (AlbumHit & { palette?: unknown }) | null = null;
+        let rarity: Rarity | null = null;
+        try {
+          const hit = (await searchAlbums([s.artist, s.title].filter(Boolean).join(" ")))[0];
+          if (hit) {
+            album = (hit.discogs_master_id ? await masterDetails(hit.discogs_master_id).catch(() => null) : null) ?? hit;
+            album.palette = await coverColors(album.cover_url);
+            if (req.body?.store !== false) rarity = sight(sightKey(album), [album.artist, album.title].filter(Boolean).join(" – "), "shelf");
+          }
+        } catch (e: any) {
+          if (e?.status !== 503) console.warn("Album match failed:", e?.message);
+        }
+        return { ...s, match: null, album, rarity };
+      }
       let match = null;
       let rarity: Rarity | null = null;
       try {

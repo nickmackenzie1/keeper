@@ -4,8 +4,8 @@ import { posterUrl } from "../lib/types";
 import { tint } from "./util";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { copiesFor } from "../lib/db";
-import { searchHunts, searchLocal, verdictForBarcode, verdictForCover, type Verdict } from "../lib/verdict";
-import { ApiError, coverScan } from "../lib/api";
+import { matchHunt, searchHunts, searchLocal, verdictForBarcode, verdictForCover, type Verdict } from "../lib/verdict";
+import { ApiError, coverScan, searchTmdbPage } from "../lib/api";
 import { preparePhoto } from "../lib/photo";
 import { celebrate, primeAudio } from "../lib/celebrate";
 import { addHunt, allHunts } from "../lib/db";
@@ -13,7 +13,7 @@ import { Person, greeting, useMe } from "./Person";
 import { useData } from "./util";
 import { Haul } from "./Haul";
 import { ShelfScan } from "./ShelfScan";
-import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
+import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
 import { IconCamera, IconScan, IconSearch, IconShelfPhoto, IconStack } from "./icons";
@@ -274,6 +274,8 @@ export function Check() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Movie[] | null>(null);
+  const [suggest, setSuggest] = useState<TmdbHit[]>([]);
+  const [sugPage, setSugPage] = useState({ page: 1, more: false, loading: false });
   const [hunts, setHunts] = useState<Hunt[]>([]);
   const [haul, setHaul] = useState(false);
   const [shelf, setShelf] = useState(false);
@@ -309,6 +311,54 @@ export function Check() {
     searchHunts(q).then((h) => alive && setHunts(h));
     return () => void (alive = false);
   }, [q]);
+
+  // Suggestions from the movie database as you type (online only; quietly skipped offline).
+  useEffect(() => {
+    setSuggest([]);
+    setSugPage({ page: 1, more: false, loading: false });
+    if (q.trim().length < 2) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      searchTmdbPage(q.trim(), 1)
+        .then((r) => {
+          if (!alive) return;
+          setSuggest(r.results);
+          setSugPage({ page: 1, more: r.more, loading: false });
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+
+  const pickSuggestion = async (hit: TmdbHit) => {
+    const v: Verdict = {
+      kind: "not_owned",
+      movie: null,
+      copies: [],
+      scanned: null,
+      lookup: { barcode: "", product_title: hit.title, format: null, candidates: [hit] },
+    };
+    v.hunt = await matchHunt([hit.tmdb_id], hit.title);
+    setVerdict(v);
+    if (v.hunt) celebrate();
+  };
+  const moreSuggestions = async () => {
+    const next = sugPage.page + 1;
+    setSugPage({ ...sugPage, loading: true });
+    try {
+      const r = await searchTmdbPage(q.trim(), next);
+      const seen = new Set(suggest.map((h) => h.tmdb_id));
+      setSuggest([...suggest, ...r.results.filter((h) => !seen.has(h.tmdb_id))]);
+      setSugPage({ page: next, more: r.more, loading: false });
+    } catch {
+      setSugPage({ ...sugPage, loading: false });
+    }
+  };
+  const ownedIds = new Set((results ?? []).map((m) => m.tmdb_id));
+  const fresh = suggest.filter((h) => !ownedIds.has(h.tmdb_id));
 
   const onCode = async (code: string) => {
     setScanning(false);
@@ -387,6 +437,31 @@ export function Check() {
               </div>
             </section>
           )
+        )}
+
+        {!verdict && !busy && results && fresh.length > 0 && (
+          <>
+            <h3 class="suggest-head">{results.length ? "Not on your shelf" : "Did you mean"}</h3>
+            <ul class="list">
+              {fresh.map((h) => (
+                <li key={h.tmdb_id}>
+                  <button class="list-row suggest-row" onClick={() => void pickSuggestion(h)}>
+                    <Poster movie={h} size="w185" class="thumb" />
+                    <span class="stack grow">
+                      <b>{h.title}</b>
+                      <span class="muted">{h.year ?? ""}</span>
+                    </span>
+                    <span class="chip new">NEW</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {sugPage.more && (
+              <button class="btn block more-btn" disabled={sugPage.loading} onClick={() => void moreSuggestions()}>
+                {sugPage.loading ? "Loading…" : "More results"}
+              </button>
+            )}
+          </>
         )}
 
         {!verdict && !busy && !results && (

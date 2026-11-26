@@ -1,6 +1,6 @@
 import { allHunts, allMovies, copiesByBarcode, copiesFor, getMovie, movieByTmdb } from "./db";
 import { ApiError, lookupBarcode } from "./api";
-import { FORMAT_RANK, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity, type ShelfSpine } from "./types";
+import { isUpgradeOver, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity, type ShelfSpine } from "./types";
 
 export type VerdictKind = "not_owned" | "upgrade" | "have" | "owned";
 
@@ -26,8 +26,7 @@ export interface Verdict {
 export function judge(movie: Movie | null, copies: Copy[], scanned: Format | null): Verdict {
   if (!movie || copies.length === 0) return { kind: "not_owned", movie, copies, scanned };
   if (!scanned || scanned === "other") return { kind: "owned", movie, copies, scanned };
-  const best = Math.max(...copies.map((c) => FORMAT_RANK[c.format]));
-  return { kind: FORMAT_RANK[scanned] > best ? "upgrade" : "have", movie, copies, scanned };
+  return { kind: isUpgradeOver(scanned, copies.map((c) => c.format)) ? "upgrade" : "have", movie, copies, scanned };
 }
 
 export const normalizeTitle = (t: string) =>
@@ -95,6 +94,8 @@ export async function verdictForBarcode(code: string, opts: { store?: boolean } 
     if (e instanceof ApiError) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
     throw e;
   }
+  // Records arrive in the next update; until then a record barcode is just "unknown".
+  if (!Array.isArray(lookup.candidates)) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
 
   let movie: Movie | null = null;
   for (const c of lookup.candidates.slice(0, 3)) {

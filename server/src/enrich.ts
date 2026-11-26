@@ -3,7 +3,7 @@ import { config } from "./config.js";
 import { db } from "./db.js";
 import { cleanTitle, movieDetails, searchMovies, tmdb } from "./lookup.js";
 import { upsertRow } from "./sync.js";
-import { posterColors } from "./colors.js";
+import { coverColors, posterColors } from "./colors.js";
 import { broadcastChange } from "./events.js";
 
 /**
@@ -189,3 +189,33 @@ seriesRouter.get("/series", async (_req, res, next) => {
     next(e);
   }
 });
+
+let colouringAlbums = false;
+/** Same as colourMovies, for record covers. */
+export async function colourAlbums(limit = 60) {
+  if (colouringAlbums) return 0;
+  colouringAlbums = true;
+  let n = 0;
+  try {
+    const rows = db
+      .prepare("SELECT * FROM albums WHERE deleted = 0 AND cover_url IS NOT NULL AND (palette_for IS NULL OR palette_for != cover_url) LIMIT ?")
+      .all(limit) as Record<string, any>[];
+    for (const a of rows) {
+      const p = await coverColors(a.cover_url);
+      if (!p) continue;
+      upsertRow("albums", {
+        ...a,
+        cover_bg: p.bg,
+        cover_accent: p.accent,
+        palette_for: a.cover_url,
+        updated_at: Math.max(Date.now(), a.updated_at + 1),
+        updated_by: "server",
+      });
+      n++;
+    }
+  } finally {
+    colouringAlbums = false;
+  }
+  if (n > 0) broadcastChange("server");
+  return n;
+}

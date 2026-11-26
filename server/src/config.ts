@@ -27,6 +27,11 @@ export const config = {
   tmdbBase: process.env.TMDB_API_BASE ?? "https://api.themoviedb.org/3",
   tmdbImageBase: process.env.TMDB_IMAGE_BASE ?? "https://image.tmdb.org/t/p",
   upcBase: process.env.UPC_API_BASE ?? "https://api.upcitemdb.com",
+  // Records: Discogs personal access token (discogs.com → Settings → Developers → Generate new token).
+  discogsToken: cleanSecret(process.env.DISCOGS_TOKEN),
+  discogsBase: process.env.DISCOGS_API_BASE ?? "https://api.discogs.com",
+  // Read-only link for other apps (e.g. CRATE DIGGER) to read the record collection.
+  shareToken: cleanSecret(process.env.SHARE_TOKEN),
 };
 
 if (!config.apiToken) {

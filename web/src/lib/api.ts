@@ -60,8 +60,11 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
   return body as T;
 }
 
-export const searchTmdb = (q: string) =>
-  api<{ results: TmdbHit[] }>(`/search?q=${encodeURIComponent(q)}`).then((r) => r.results);
+export const searchTmdb = (q: string) => searchTmdbPage(q, 1).then((r) => r.results);
+
+/** One page of movie-database results; `more` = there's another page. */
+export const searchTmdbPage = (q: string, page: number) =>
+  api<{ results: TmdbHit[]; more?: boolean }>(`/search?q=${encodeURIComponent(q)}&page=${page}`).then((r) => ({ results: r.results, more: !!r.more }));
 
 export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | null }>(`/movie/${id}`);
 

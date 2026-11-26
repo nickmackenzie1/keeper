@@ -89,6 +89,50 @@ CREATE TABLE IF NOT EXISTS hunts (
 );
 CREATE INDEX IF NOT EXISTS hunts_seq ON hunts(seq);
 
+-- Records: one row per album (like movies), one per physical copy (like copies).
+CREATE TABLE IF NOT EXISTS albums (
+  id                 TEXT PRIMARY KEY,
+  discogs_master_id  INTEGER,
+  discogs_release_id INTEGER,   -- for albums Discogs has no "master" for
+  title              TEXT NOT NULL,
+  artist             TEXT,
+  year               INTEGER,
+  cover_url          TEXT,
+  genres             TEXT,
+  styles             TEXT,
+  cover_bg           TEXT,
+  cover_accent       TEXT,
+  palette_for        TEXT,
+  updated_at         INTEGER NOT NULL,
+  updated_by         TEXT NOT NULL,
+  deleted            INTEGER NOT NULL DEFAULT 0,
+  seq                INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS albums_seq ON albums(seq);
+
+CREATE TABLE IF NOT EXISTS pressings (
+  id                 TEXT PRIMARY KEY,
+  album_id           TEXT NOT NULL,
+  format             TEXT NOT NULL CHECK (format IN ('vinyl','cd','cassette','other')),
+  description        TEXT,      -- "2xLP, Reissue, Red Translucent"
+  discogs_release_id INTEGER,
+  barcode            TEXT,
+  label              TEXT,
+  catno              TEXT,
+  country            TEXT,
+  year               INTEGER,
+  location           TEXT,
+  notes              TEXT,
+  added_by           TEXT,
+  created_at         INTEGER,
+  updated_at         INTEGER NOT NULL,
+  updated_by         TEXT NOT NULL,
+  deleted            INTEGER NOT NULL DEFAULT 0,
+  seq                INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pressings_seq ON pressings(seq);
+CREATE INDEX IF NOT EXISTS pressings_album ON pressings(album_id);
+
 -- TMDB collection ("series") contents, cached for the series-gaps view.
 CREATE TABLE IF NOT EXISTS series_cache (
   collection_id INTEGER PRIMARY KEY,
@@ -111,6 +155,10 @@ addColumn("hunts", "found_by", "TEXT");          // who found it (credit!)
 addColumn("movies", "poster_bg", "TEXT");         // colours picked from the poster
 addColumn("movies", "poster_accent", "TEXT");
 addColumn("movies", "palette_for", "TEXT");       // which poster those colours came from
+addColumn("hunts", "kind", "TEXT");               // null/'movie' or 'album'
+addColumn("hunts", "artist", "TEXT");
+addColumn("hunts", "discogs_id", "INTEGER");      // master id (or release id) for albums
+addColumn("hunts", "cover_url", "TEXT");
 {
   // certification (G/PG/14A…) arrived later: re-enrich everything once to fill it.
   const cols = db.prepare("PRAGMA table_info(movies)").all() as { name: string }[];
@@ -146,7 +194,7 @@ export function purgeTombstones(days: number) {
   const cutoff = Date.now() - days * 86_400_000;
   const tx = db.transaction(() => {
     let maxSeq = getMeta("purged_through_seq");
-    for (const table of ["movies", "copies", "hunts"]) {
+    for (const table of ["movies", "copies", "hunts", "albums", "pressings"]) {
       const r = db.prepare(`SELECT MAX(seq) m FROM ${table} WHERE deleted = 1 AND updated_at < ?`).get(cutoff) as { m: number | null };
       if (r.m) maxSeq = Math.max(maxSeq, r.m);
       db.prepare(`DELETE FROM ${table} WHERE deleted = 1 AND updated_at < ?`).run(cutoff);

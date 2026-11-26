@@ -84,7 +84,7 @@ export function Shelf() {
           <ScreenTitle title="Collection" />
           <div class="row">
             <SyncPill />
-            <a class="btn primary icon-btn" href="#/add" aria-label="Add a disc"><IconPlus /></a>
+            <a class="btn primary icon-btn add-btn" href="#/add" aria-label="Add a disc"><IconPlus /><span class="add-label" aria-hidden="true">Add</span></a>
           </div>
         </div>
         <div class="row">

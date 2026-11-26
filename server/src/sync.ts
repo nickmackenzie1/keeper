@@ -4,7 +4,7 @@ import { db, nextSeq, currentSeq, getMeta } from "./db.js";
 import { config } from "./config.js";
 import { broadcastChange } from "./events.js";
 import { queueDigest } from "./push.js";
-import { colourMovies } from "./enrich.js";
+import { colourAlbums, colourMovies } from "./enrich.js";
 
 const base = {
   id: z.string().uuid(),
@@ -55,6 +55,42 @@ const HuntIn = z.object({
   found: z.boolean().default(false),
   found_by: str,
   added_by: str,
+  kind: str,
+  artist: str,
+  discogs_id: int,
+  cover_url: str,
+});
+
+const AlbumIn = z.object({
+  ...base,
+  discogs_master_id: int,
+  discogs_release_id: int,
+  title: z.string().min(1),
+  artist: str,
+  year: int,
+  cover_url: str,
+  genres: str,
+  styles: str,
+  cover_bg: str,
+  cover_accent: str,
+  palette_for: str,
+});
+
+const PressingIn = z.object({
+  ...base,
+  album_id: z.string().uuid(),
+  format: z.enum(["vinyl", "cd", "cassette", "other"]),
+  description: str,
+  discogs_release_id: int,
+  barcode: str,
+  label: str,
+  catno: str,
+  country: str,
+  year: int,
+  location: str,
+  notes: str,
+  added_by: str,
+  created_at: int,
 });
 
 /**
@@ -74,8 +110,18 @@ const TABLES = {
   },
   hunts: {
     schema: HuntIn,
-    columns: ["id", "tmdb_id", "title", "year", "poster_path", "notes", "found", "found_by", "added_by", "updated_at", "updated_by", "deleted"],
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "notes", "found", "found_by", "added_by", "kind", "artist", "discogs_id", "cover_url", "updated_at", "updated_by", "deleted"],
     bools: ["deleted", "found"],
+  },
+  albums: {
+    schema: AlbumIn,
+    columns: ["id", "discogs_master_id", "discogs_release_id", "title", "artist", "year", "cover_url", "genres", "styles", "cover_bg", "cover_accent", "palette_for", "updated_at", "updated_by", "deleted"],
+    bools: ["deleted"],
+  },
+  pressings: {
+    schema: PressingIn,
+    columns: ["id", "album_id", "format", "description", "discogs_release_id", "barcode", "label", "catno", "country", "year", "location", "notes", "added_by", "created_at", "updated_at", "updated_by", "deleted"],
+    bools: ["deleted"],
   },
 } as const;
 type TableName = keyof typeof TABLES;
@@ -90,8 +136,10 @@ const SyncRequest = z.object({
       movies: z.array(MovieIn).default([]),
       copies: z.array(CopyIn).default([]),
       hunts: z.array(HuntIn).default([]),
+      albums: z.array(AlbumIn).default([]),
+      pressings: z.array(PressingIn).default([]),
     })
-    .default({ movies: [], copies: [], hunts: [] }),
+    .default({ movies: [], copies: [], hunts: [], albums: [], pressings: [] }),
 });
 
 const stmts = Object.fromEntries(
@@ -181,6 +229,7 @@ syncRouter.post("/sync", (req, res) => {
     broadcastChange(device_id);
     queueDigest(device_id);
     if (changes.movies.length) setTimeout(() => void colourMovies(), 500); // new/changed posters get their colours
+    if (changes.albums.length) setTimeout(() => void colourAlbums(), 500);
   }
 
   const full = reason !== null;

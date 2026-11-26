@@ -74,18 +74,28 @@ export function paletteFromPixels(data: Buffer, channels: number): Palette {
 
 export async function posterColors(posterPath: string | null | undefined): Promise<Palette | null> {
   if (!posterPath) return null;
-  const hit = db.prepare("SELECT bg, accent FROM poster_colors WHERE poster_path = ?").get(posterPath) as Palette | undefined;
+  return imageColors(posterPath, `${config.tmdbImageBase}/w92${posterPath}`, 24, 36);
+}
+
+/** Album covers are square and come from Discogs as full URLs. */
+export async function coverColors(url: string | null | undefined): Promise<Palette | null> {
+  if (!url) return null;
+  return imageColors(url, url, 30, 30, { "User-Agent": "Keeper/1.0 +https://github.com/nickmackenzie1/keeper" });
+}
+
+async function imageColors(key: string, url: string, w: number, h: number, headers: Record<string, string> = {}): Promise<Palette | null> {
+  const hit = db.prepare("SELECT bg, accent FROM poster_colors WHERE poster_path = ?").get(key) as Palette | undefined;
   if (hit) return hit;
   try {
-    const r = await outbound("Poster image", `${config.tmdbImageBase}/w92${posterPath}`, {}, 8000);
+    const r = await outbound("Cover image", url, { headers }, 8000);
     if (!r.ok) return null;
     const { data, info } = await sharp(Buffer.from(await r.arrayBuffer()))
-      .resize(24, 36, { fit: "cover" })
+      .resize(w, h, { fit: "cover" })
       .removeAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
     const p = paletteFromPixels(data, info.channels);
-    db.prepare("INSERT OR REPLACE INTO poster_colors(poster_path, bg, accent) VALUES (?, ?, ?)").run(posterPath, p.bg, p.accent);
+    db.prepare("INSERT OR REPLACE INTO poster_colors(poster_path, bg, accent) VALUES (?, ?, ?)").run(key, p.bg, p.accent);
     return p;
   } catch {
     return null;

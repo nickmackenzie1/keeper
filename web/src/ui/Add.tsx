@@ -1,10 +1,10 @@
 import { ScreenTitle } from "./Zone";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ApiError, coverScan, lookupBarcode, searchTmdb, tmdbDetails } from "../lib/api";
+import { ApiError, coverScan, lookupBarcode, searchTmdbPage, tmdbDetails } from "../lib/api";
 import { preparePhoto } from "../lib/photo";
 import { allCopies, copiesFor, getMovie, movieByTmdb } from "../lib/db";
 import { addDisc } from "../lib/collection";
-import { FORMATS, FORMAT_LABEL, FORMAT_RANK, type Format, type Movie, type TmdbHit } from "../lib/types";
+import { FORMATS, FORMAT_LABEL, isUpgradeOver, type Format, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
 import { IconCamera, IconScan, IconSearch } from "./icons";
@@ -16,6 +16,7 @@ export function Add({ query }: { query: URLSearchParams }) {
   const [scanning, setScanning] = useState(false);
   const [q, setQ] = useState(query.get("q") ?? "");
   const [results, setResults] = useState<TmdbHit[] | null>(null);
+  const [page, setPage] = useState({ n: 1, more: false, loading: false });
   const [barcode, setBarcode] = useState<string | null>(query.get("barcode"));
   const [format, setFormat] = useState<Format | null>((query.get("format") as Format) || null);
   const [productTitle, setProductTitle] = useState<string | null>(null);
@@ -64,7 +65,8 @@ export function Add({ query }: { query: URLSearchParams }) {
       const r = await lookupBarcode(code);
       setProductTitle(r.product_title);
       if (r.format && r.format !== "other") setFormat(r.format);
-      setResults(r.candidates);
+      setResults(r.candidates ?? []);
+      setPage({ n: 1, more: false, loading: false });
       if (!r.product_title) setError("That barcode isn't in the lookup database — search by title instead.");
     } catch (e) {
       fail(e);
@@ -78,7 +80,9 @@ export function Add({ query }: { query: URLSearchParams }) {
     setBusy(true);
     setError(null);
     try {
-      setResults(await searchTmdb(text));
+      const r = await searchTmdbPage(text, 1);
+      setResults(r.results);
+      setPage({ n: 1, more: r.more, loading: false });
     } catch (e) {
       fail(e);
       setResults([]);
@@ -95,7 +99,7 @@ export function Add({ query }: { query: URLSearchParams }) {
     try {
       const { b64 } = await preparePhoto(file, 1400);
       const spine = await coverScan(b64, false);
-      if (spine?.format && spine.format !== "unknown") setFormat(spine.format);
+      if (spine?.format && spine.format !== "unknown") setFormat(spine.format as Format);
       setProductTitle(spine ? [spine.title, spine.label, spine.edition].filter(Boolean).join(" · ") : null);
       if (spine?.match) setResults([spine.match]);
       else {
@@ -109,6 +113,30 @@ export function Add({ query }: { query: URLSearchParams }) {
       setBusy(false);
     }
   }
+
+  // Search as you type (after a short pause), unless a barcode/cover lookup is showing.
+  const typed = useRef(false);
+  useEffect(() => {
+    if (!typed.current || q.trim().length < 2) return;
+    const t = setTimeout(() => {
+      setBarcode(null);
+      setProductTitle(null);
+      void runSearch(q);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const loadMore = async () => {
+    setPage({ ...page, loading: true });
+    try {
+      const r = await searchTmdbPage(q, page.n + 1);
+      const seen = new Set((results ?? []).map((h) => h.tmdb_id));
+      setResults([...(results ?? []), ...r.results.filter((h) => !seen.has(h.tmdb_id))]);
+      setPage({ n: page.n + 1, more: r.more, loading: false });
+    } catch {
+      setPage({ ...page, loading: false });
+    }
+  };
 
   const choose = async (hit: TmdbHit) => {
     const local = await movieByTmdb(hit.tmdb_id);
@@ -133,7 +161,7 @@ export function Add({ query }: { query: URLSearchParams }) {
         >
           <label class="search grow">
             <IconSearch />
-            <input type="search" placeholder="Search movie title" aria-label="Search movie title" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
+            <input type="search" placeholder="Search movie title" aria-label="Search movie title" value={q} onInput={(e) => { typed.current = true; setQ((e.target as HTMLInputElement).value); }} />
           </label>
           <button type="button" class="btn icon-btn" aria-label="Photo of the cover" onClick={() => coverInput.current?.click()}>
             <IconCamera />
@@ -171,6 +199,11 @@ export function Add({ query }: { query: URLSearchParams }) {
               </li>
             ))}
           </ul>
+        )}
+        {results && !busy && page.more && !barcode && (
+          <button class="btn block more-btn" disabled={page.loading} onClick={() => void loadMore()}>
+            {page.loading ? "Loading…" : "More results"}
+          </button>
         )}
 
         {!results && !busy && (
@@ -213,8 +246,7 @@ function AddForm({ pick, barcode, initialFormat, onBack }: { pick: Pick; barcode
   const existing = useData(async () => (pick.movie ? copiesFor(pick.movie.id) : []), [pick.movie?.id]);
   const locations = useData(async () => [...new Set((await allCopies()).map((c) => c.location).filter(Boolean) as string[])].sort());
 
-  const bestOwned = (existing ?? []).reduce((a, c) => Math.max(a, FORMAT_RANK[c.format]), 0);
-  const isUpgrade = existing && existing.length > 0 && FORMAT_RANK[format] > bestOwned;
+  const isUpgrade = existing && existing.length > 0 && isUpgradeOver(format, existing.map((c) => c.format));
 
   const save = async () => {
     setSaving(true);

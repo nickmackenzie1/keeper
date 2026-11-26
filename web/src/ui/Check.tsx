@@ -1,7 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { copiesFor } from "../lib/db";
-import { searchLocal, verdictForBarcode, type Verdict } from "../lib/verdict";
-import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Movie } from "../lib/types";
+import { searchHunts, searchLocal, verdictForBarcode, type Verdict } from "../lib/verdict";
+import { celebrate, primeAudio } from "../lib/celebrate";
+import { addHunt } from "../lib/db";
+import { Haul } from "./Haul";
+import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
 import { IconScan, IconSearch } from "./icons";
@@ -48,6 +51,12 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
   };
   return (
     <section class={`verdict verdict-${v.unknown ? "unknown" : v.kind}`} aria-live="polite">
+      {v.hunt && (
+        <div class="hunt-banner">
+          <b>On your hunt list!</b>
+          <span>{v.hunt.added_by ? `${v.hunt.added_by} has been looking for this` : "You've been looking for this"}{v.hunt.notes ? ` · ${v.hunt.notes}` : ""}</span>
+        </div>
+      )}
       <div class="verdict-head">
         {display && <Poster movie={display} size="w185" class="verdict-poster" />}
         <div class="stack">
@@ -79,9 +88,26 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
         {v.movie && v.kind !== "upgrade" && (
           <a class="btn grow" href={`#/movie/${v.movie.id}`}>Details</a>
         )}
+        {v.kind === "not_owned" && !v.hunt && cand && <HuntButton hit={cand} />}
         <button class="btn" onClick={onNext}>Scan next</button>
       </div>
     </section>
+  );
+}
+
+function HuntButton({ hit }: { hit: { tmdb_id: number; title: string; year: number | null; poster_path: string | null } }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      class="btn"
+      disabled={done}
+      onClick={async () => {
+        await addHunt(hit);
+        setDone(true);
+      }}
+    >
+      {done ? "On hunt list" : "Hunt it"}
+    </button>
   );
 }
 
@@ -112,11 +138,14 @@ export function Check() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Movie[] | null>(null);
+  const [hunts, setHunts] = useState<Hunt[]>([]);
+  const [haul, setHaul] = useState(false);
 
   useEffect(() => {
     if (!q.trim()) return setResults(null);
     let alive = true;
     searchLocal(q).then((r) => alive && setResults(r));
+    searchHunts(q).then((h) => alive && setHunts(h));
     return () => void (alive = false);
   }, [q]);
 
@@ -125,15 +154,21 @@ export function Check() {
     setBusy(true);
     setQ("");
     try {
-      setVerdict(await verdictForBarcode(code));
+      const v = await verdictForBarcode(code);
+      setVerdict(v);
+      if (v.hunt) celebrate();
     } finally {
       setBusy(false);
     }
   };
 
+  const startScan = () => {
+    primeAudio();
+    setScanning(true);
+  };
   const next = () => {
     setVerdict(null);
-    setScanning(true);
+    startScan();
   };
 
   return (
@@ -157,7 +192,7 @@ export function Check() {
               }}
             />
           </label>
-          <button class="btn primary icon-btn" aria-label="Scan a barcode" onClick={() => setScanning(true)}>
+          <button class="btn primary icon-btn" aria-label="Scan a barcode" onClick={startScan}>
             <IconScan />
           </button>
         </div>
@@ -166,6 +201,13 @@ export function Check() {
       <div class="screen-body">
         {busy && <p class="muted center">Looking it up…</p>}
         {verdict && !busy && <VerdictCard v={verdict} onNext={next} />}
+
+        {!verdict && !busy && results && hunts.map((h) => (
+          <div key={h.id} class="hunt-banner standalone">
+            <b>“{h.title}” is on your hunt list!</b>
+            <span>{h.added_by ? `${h.added_by} is looking for it` : "Grab it if you see it"}{h.notes ? ` · ${h.notes}` : ""}</span>
+          </div>
+        ))}
 
         {!verdict && !busy && results && (
           results.length ? (
@@ -182,15 +224,28 @@ export function Check() {
         )}
 
         {!verdict && !busy && !results && (
-          <button class="hero-scan" onClick={() => setScanning(true)}>
-            <IconScan />
-            <span class="hero-scan-title">Scan a disc</span>
-            <span class="muted">Instantly see if you own it, or if it's an upgrade. Works without signal.</span>
-          </button>
+          <>
+            <button class="hero-scan" onClick={startScan}>
+              <IconScan />
+              <span class="hero-scan-title">Scan a disc</span>
+              <span class="muted">Instantly see if you own it, or if it's an upgrade. Works without signal.</span>
+            </button>
+            <button
+              class="haul-start"
+              onClick={() => {
+                primeAudio();
+                setHaul(true);
+              }}
+            >
+              <span class="haul-start-title">Haul mode</span>
+              <span class="muted">Got a stack? Scan them all, then see what's new.</span>
+            </button>
+          </>
         )}
       </div>
 
       {scanning && <Scanner onCode={onCode} onClose={() => setScanning(false)} />}
+      {haul && <Haul onClose={() => setHaul(false)} />}
     </div>
   );
 }

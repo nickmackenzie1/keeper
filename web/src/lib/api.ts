@@ -1,5 +1,5 @@
 import { getMeta } from "./db";
-import type { BarcodeLookup, TmdbHit } from "./types";
+import type { BarcodeLookup, Series, TmdbHit } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -47,6 +47,8 @@ export const searchTmdb = (q: string) =>
   api<{ results: TmdbHit[] }>(`/search?q=${encodeURIComponent(q)}`).then((r) => r.results);
 
 export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | null }>(`/movie/${id}`);
+
+export const fetchSeries = () => api<{ series: Series[] }>("/series").then((r) => r.series);
 
 export const lookupBarcode = (upc: string) => api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}`);
 

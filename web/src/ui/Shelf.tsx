@@ -3,7 +3,7 @@ import { allCopies, allMovies } from "../lib/db";
 import { normalizeTitle } from "../lib/verdict";
 import { FORMAT_RANK, FORMAT_SHORT, type Copy, type Format, type Movie } from "../lib/types";
 import { Poster } from "./Poster";
-import { IconGrid, IconList, IconSearch } from "./icons";
+import { IconGrid, IconList, IconPlus, IconSearch } from "./icons";
 import { SyncPill } from "./SyncPill";
 import { useData } from "./util";
 
@@ -62,7 +62,10 @@ export function Shelf() {
       <header class="screen-head">
         <div class="row between">
           <h1>Collection</h1>
-          <SyncPill />
+          <div class="row">
+            <SyncPill />
+            <a class="btn primary icon-btn" href="#/add" aria-label="Add a disc"><IconPlus /></a>
+          </div>
         </div>
         <div class="row">
           <label class="search grow">

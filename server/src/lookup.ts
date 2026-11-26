@@ -2,9 +2,9 @@ import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
 
-const TMDB = "https://api.themoviedb.org/3";
+const TMDB = config.tmdbBase;
 
-async function tmdb(path: string, params: Record<string, string> = {}) {
+export async function tmdb(path: string, params: Record<string, string> = {}) {
   if (!config.tmdbToken) throw Object.assign(new Error("TMDB_READ_TOKEN not configured"), { status: 503 });
   const url = new URL(TMDB + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -22,6 +22,18 @@ const toHit = (m: any): MovieHit => ({
   poster_path: m.poster_path ?? null,
   overview: m.overview ?? "",
 });
+
+/** Full details incl. genres and series (TMDB "collection"). */
+export async function movieDetails(id: number) {
+  const m = await tmdb(`/movie/${id}`);
+  return {
+    ...toHit(m),
+    runtime: (m.runtime as number) || null,
+    genres: ((m.genres ?? []) as { name: string }[]).map((g) => g.name).join(", ") || null,
+    collection_id: (m.belongs_to_collection?.id as number) ?? null,
+    collection_name: (m.belongs_to_collection?.name as string) ?? null,
+  };
+}
 
 export async function searchMovies(query: string, year?: number): Promise<MovieHit[]> {
   const params: Record<string, string> = { query, include_adult: "false" };
@@ -54,8 +66,8 @@ async function upcLookup(barcode: string): Promise<{ title: string; raw: any } |
   if (cached) return JSON.parse(cached.payload);
 
   const url = config.upcItemDbKey
-    ? `https://api.upcitemdb.com/prod/v1/lookup?upc=${encodeURIComponent(barcode)}`
-    : `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`;
+    ? `${config.upcBase}/prod/v1/lookup?upc=${encodeURIComponent(barcode)}`
+    : `${config.upcBase}/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`;
   const headers: Record<string, string> = { Accept: "application/json" };
   if (config.upcItemDbKey) { headers.user_key = config.upcItemDbKey; headers.key_type = "3scale"; }
 
@@ -85,8 +97,7 @@ lookupRouter.get("/search", async (req, res, next) => {
 /** GET /api/movie/:tmdbId — full details (runtime etc.) once the user picks a match. */
 lookupRouter.get("/movie/:tmdbId", async (req, res, next) => {
   try {
-    const m = await tmdb(`/movie/${Number(req.params.tmdbId)}`);
-    res.json({ ...toHit(m), runtime: m.runtime ?? null });
+    res.json(await movieDetails(Number(req.params.tmdbId)));
   } catch (e) { next(e); }
 });
 

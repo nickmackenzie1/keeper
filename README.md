@@ -11,7 +11,7 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 ```
 
 - `server/` — TypeScript + Express + SQLite: sync, lookups, push notifications, serves the app
-- `web/` — Preact + TypeScript PWA: Check, Collection, Add, Settings; three skins (Catalog, Midnight, Rewind)
+- `web/` — Preact + TypeScript PWA: Check (+ Haul mode), Collection, Hunt list, Stats (achievements, series gaps), Settings; skins: Catalog, Midnight, Rewind, Late Fee
 - `BACKLOG.md` — ideas for later (shelf-photo scan, etc.)
 
 ## 1. Get the keys (10 min)
@@ -42,6 +42,21 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 3. Enter your name + the access code.
 4. Settings → **Turn on background updates** (allow notifications).
 5. Pick a skin.
+
+## Features
+
+- **Check** — scan a barcode or type a title: *Not in your collection*, *Upgrade!*, *Already on the shelf*. Works offline.
+- **Haul mode** — scan a whole stack, get "6 new, 2 upgrades, 1 you already own", tick what you bought, add them all at once.
+- **Hunt list** — movies you're looking for, shared between both phones. Scanning one in a store sets off confetti and a chime.
+- **Stats** — discs by format, decade and genre, finds per month, upgrade progress.
+- **Achievements** — "First 4K", "Century Club", "Completed Back to the Future", and more.
+- **Series gaps** — "You own Alien — missing Aliens, Alien³", with one tap to put them on the hunt list.
+- Genres and series fill in automatically from TMDB (also for discs added earlier).
+
+## Updating
+
+On the Synology (SSH): `cd /volume1/docker/keeper && git pull && sudo docker compose up -d --build`
+Or copy the new files over and rebuild the project in Container Manager.
 
 ## How staying in sync works
 

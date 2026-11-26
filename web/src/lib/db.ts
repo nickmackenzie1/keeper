@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { Copy, Movie } from "./types";
+import type { Copy, Hunt, Movie, Series } from "./types";
 
 /**
  * The phone's own copy of the collection (IndexedDB). Everything in the app reads
@@ -8,6 +8,7 @@ import type { Copy, Movie } from "./types";
 interface KeeperDB extends DBSchema {
   movies: { key: string; value: Movie; indexes: { tmdb_id: number; dirty: number } };
   copies: { key: string; value: Copy; indexes: { movie_id: string; barcode: string; dirty: number } };
+  hunts: { key: string; value: Hunt; indexes: { dirty: number } };
   meta: { key: string; value: unknown };
 }
 
@@ -15,8 +16,13 @@ let dbPromise: Promise<IDBPDatabase<KeeperDB>> | null = null;
 
 export function openKeeper() {
   if (!dbPromise) {
-    dbPromise = openDB<KeeperDB>("keeper", 1, {
-      upgrade(db) {
+    dbPromise = openDB<KeeperDB>("keeper", 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 2) {
+          const hunts = db.createObjectStore("hunts", { keyPath: "id" });
+          hunts.createIndex("dirty", "dirty");
+        }
+        if (oldVersion >= 1) return;
         const movies = db.createObjectStore("movies", { keyPath: "id" });
         movies.createIndex("tmdb_id", "tmdb_id");
         movies.createIndex("dirty", "dirty");
@@ -41,6 +47,9 @@ export interface Meta {
   lastSyncAt: number; // server time of last successful sync (ms)
   forceFull: boolean;
   theme: string;
+  series: Series[]; // last /api/series answer, for offline
+  seenAchievements: string[];
+  bestHaul: number;
 }
 
 export async function getMeta<K extends keyof Meta>(key: K): Promise<Meta[K] | undefined> {
@@ -94,7 +103,16 @@ export async function movieByTmdb(tmdbId: number): Promise<Movie | undefined> {
 
 export async function pendingCount(): Promise<number> {
   const db = await openKeeper();
-  return (await db.countFromIndex("movies", "dirty", 1)) + (await db.countFromIndex("copies", "dirty", 1));
+  return (
+    (await db.countFromIndex("movies", "dirty", 1)) +
+    (await db.countFromIndex("copies", "dirty", 1)) +
+    (await db.countFromIndex("hunts", "dirty", 1))
+  );
+}
+
+export async function allHunts(): Promise<Hunt[]> {
+  const rows = await (await openKeeper()).getAll("hunts");
+  return rows.filter((h) => !h.deleted);
 }
 
 // ---------- writes (always mark dirty so the next sync pushes them) ----------
@@ -113,6 +131,41 @@ export async function saveCopy(c: Omit<Copy, "updated_at" | "updated_by" | "dirt
   await (await openKeeper()).put("copies", row);
   notifyChanged();
   return row;
+}
+
+export async function saveHunt(h: Omit<Hunt, "updated_at" | "updated_by" | "dirty">) {
+  const row: Hunt = { ...h, ...(await stamp()) };
+  await (await openKeeper()).put("hunts", row);
+  notifyChanged();
+  return row;
+}
+
+export async function addHunt(hit: { tmdb_id: number | null; title: string; year: number | null; poster_path: string | null }, notes: string | null = null) {
+  const existing = (await allHunts()).find((h) => !h.found && ((hit.tmdb_id && h.tmdb_id === hit.tmdb_id) || h.title === hit.title));
+  if (existing) return existing;
+  return saveHunt({
+    id: crypto.randomUUID(),
+    tmdb_id: hit.tmdb_id,
+    title: hit.title,
+    year: hit.year,
+    poster_path: hit.poster_path,
+    notes,
+    found: false,
+    added_by: (await getMeta("deviceName")) ?? null,
+    deleted: false,
+  });
+}
+
+/** Adding a movie you were hunting for marks the hunt found. */
+export async function markHuntsFound(tmdbId: number | null, title: string) {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  for (const h of await allHunts()) {
+    if (h.found) continue;
+    if ((tmdbId && h.tmdb_id === tmdbId) || (!h.tmdb_id && norm(h.title) === norm(title))) {
+      const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = h;
+      await saveHunt({ ...rest, found: true });
+    }
+  }
 }
 
 export async function deleteCopy(c: Copy) {

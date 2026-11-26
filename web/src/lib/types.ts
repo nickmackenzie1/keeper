@@ -28,6 +28,9 @@ export interface Movie {
   poster_path: string | null;
   overview: string | null;
   runtime: number | null;
+  genres: string | null; // "Horror, Science Fiction"
+  collection_id: number | null; // TMDB collection = series
+  collection_name: string | null;
   updated_at: number;
   updated_by: string;
   deleted: boolean;
@@ -44,10 +47,35 @@ export interface Copy {
   notes: string | null;
   upgrade_wanted: boolean;
   added_by: string | null;
+  created_at: number | null; // when it was added to the collection
   updated_at: number;
   updated_by: string;
   deleted: boolean;
   dirty: 0 | 1;
+}
+
+/** A movie one of you is hunting for (shared between phones). */
+export interface Hunt {
+  id: string;
+  tmdb_id: number | null;
+  title: string;
+  year: number | null;
+  poster_path: string | null;
+  notes: string | null;
+  found: boolean;
+  added_by: string | null;
+  updated_at: number;
+  updated_by: string;
+  deleted: boolean;
+  dirty: 0 | 1;
+}
+
+export interface Series {
+  collection_id: number;
+  name: string;
+  owned: number;
+  total: number;
+  parts: { tmdb_id: number; title: string; year: number | null; poster_path: string | null; owned: boolean }[];
 }
 
 export interface TmdbHit {
@@ -57,6 +85,9 @@ export interface TmdbHit {
   poster_path: string | null;
   overview: string;
   runtime?: number | null;
+  genres?: string | null;
+  collection_id?: number | null;
+  collection_name?: string | null;
 }
 
 export interface BarcodeLookup {

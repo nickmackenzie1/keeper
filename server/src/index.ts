@@ -7,6 +7,7 @@ import { syncRouter } from "./sync.js";
 import { lookupRouter } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
+import { enrichMovies, seriesRouter } from "./enrich.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -30,6 +31,7 @@ app.use("/api", syncRouter);
 app.use("/api", lookupRouter);
 app.use("/api", eventsRouter);
 app.use("/api", pushRouter);
+app.use("/api", seriesRouter);
 
 app.get("/api/stats", (_req, res) => {
   const q = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
@@ -69,5 +71,8 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 purgeTombstones(config.tombstoneDays);
 setInterval(() => purgeTombstones(config.tombstoneDays), 86_400_000);
 setInterval(() => flushDigests().catch((e) => console.error("digest:", e)), 60_000);
+// Fill in genres + series for new movies (and everything added before this existed).
+setTimeout(() => void enrichMovies(), 5_000);
+setInterval(() => void enrichMovies(), 2 * 60_000);
 
 app.listen(config.port, () => console.log(`Keeper listening on :${config.port}`));

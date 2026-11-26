@@ -1,6 +1,6 @@
 import { api, ApiError } from "./api";
 import { deviceId, getMeta, notifyChanged, openKeeper, setMeta } from "./db";
-import type { Copy, Movie } from "./types";
+import type { Copy, Hunt, Movie } from "./types";
 
 /**
  * Two-way sync with the Keeper server. Used by the page AND the service worker
@@ -26,7 +26,7 @@ interface SyncResponse {
   cursor: number;
   server_time: number;
   applied: { accepted: number; rejected: number };
-  changes: { movies: Omit<Movie, "dirty">[]; copies: Omit<Copy, "dirty">[] };
+  changes: { movies: Omit<Movie, "dirty">[]; copies: Omit<Copy, "dirty">[]; hunts?: Omit<Hunt, "dirty">[] };
 }
 
 const strip = <T extends { dirty: number }>({ dirty: _d, ...rest }: T) => rest;
@@ -43,6 +43,7 @@ async function runSync(): Promise<SyncResult> {
 
   const dirtyMovies = await db.getAllFromIndex("movies", "dirty", 1);
   const dirtyCopies = await db.getAllFromIndex("copies", "dirty", 1);
+  const dirtyHunts = await db.getAllFromIndex("hunts", "dirty", 1);
 
   let res: SyncResponse;
   try {
@@ -52,7 +53,7 @@ async function runSync(): Promise<SyncResult> {
         device_id: id,
         device_name: name,
         cursor,
-        changes: { movies: dirtyMovies.map(strip), copies: dirtyCopies.map(strip) },
+        changes: { movies: dirtyMovies.map(strip), copies: dirtyCopies.map(strip), hunts: dirtyHunts.map(strip) },
       }),
     }, token);
   } catch (e) {
@@ -61,14 +62,14 @@ async function runSync(): Promise<SyncResult> {
 
   // What we sent, by id → updated_at, so we can clear `dirty` only if it wasn't edited again meanwhile.
   const sent = new Map<string, number>();
-  for (const r of [...dirtyMovies, ...dirtyCopies]) sent.set(r.id, r.updated_at);
+  for (const r of [...dirtyMovies, ...dirtyCopies, ...dirtyHunts]) sent.set(r.id, r.updated_at);
 
-  const tx = db.transaction(["movies", "copies"], "readwrite");
-  const stores = { movies: tx.objectStore("movies"), copies: tx.objectStore("copies") } as const;
+  const tx = db.transaction(["movies", "copies", "hunts"], "readwrite");
+  const stores = { movies: tx.objectStore("movies"), copies: tx.objectStore("copies"), hunts: tx.objectStore("hunts") } as const;
 
-  for (const table of ["movies", "copies"] as const) {
+  for (const table of ["movies", "copies", "hunts"] as const) {
     const store = stores[table];
-    const incoming = res.changes[table] as (Movie | Copy)[];
+    const incoming = (res.changes[table] ?? []) as (Movie | Copy | Hunt)[];
 
     if (res.full) {
       // Keep local edits made after we sent this request; replace everything else.
@@ -96,9 +97,9 @@ async function runSync(): Promise<SyncResult> {
   // If the server rejected one of our edits (someone edited it later), resync fully next time.
   await setMeta("forceFull", res.applied.rejected > 0);
 
-  const pulled = res.changes.movies.length + res.changes.copies.length;
+  const pulled = res.changes.movies.length + res.changes.copies.length + (res.changes.hunts?.length ?? 0);
   if (pulled > 0 || res.full) notifyChanged("remote");
-  return { ok: true, full: res.full, pulled, pushed: dirtyMovies.length + dirtyCopies.length };
+  return { ok: true, full: res.full, pulled, pushed: dirtyMovies.length + dirtyCopies.length + dirtyHunts.length };
 }
 
 let inFlight: Promise<SyncResult> | null = null;

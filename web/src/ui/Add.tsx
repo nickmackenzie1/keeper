@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { ApiError, lookupBarcode, searchTmdb, tmdbDetails } from "../lib/api";
-import { allCopies, copiesFor, getMeta, getMovie, movieByTmdb, saveCopy, saveMovie } from "../lib/db";
+import { allCopies, copiesFor, getMovie, movieByTmdb } from "../lib/db";
+import { addDisc } from "../lib/collection";
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, type Format, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
@@ -186,36 +187,15 @@ function AddForm({ pick, barcode, initialFormat, onBack }: { pick: Pick; barcode
 
   const save = async () => {
     setSaving(true);
-    let movie = pick.movie;
-    if (!movie) {
-      let details: Partial<TmdbHit> = pick.tmdb ?? {};
-      if (pick.tmdb) details = await tmdbDetails(pick.tmdb.tmdb_id).catch(() => pick.tmdb!);
-      movie = await saveMovie({
-        id: crypto.randomUUID(),
-        tmdb_id: pick.tmdb?.tmdb_id ?? null,
-        title: pick.manual ? title.trim() : details.title ?? title,
-        year: pick.manual ? Number(year) || null : details.year ?? null,
-        poster_path: details.poster_path ?? null,
-        overview: details.overview ?? null,
-        runtime: details.runtime ?? null,
-        deleted: false,
-      });
-    }
-    // Got a better version: the old ones no longer need upgrading.
-    if (isUpgrade) {
-      for (const c of existing ?? []) if (c.upgrade_wanted && FORMAT_RANK[c.format] < FORMAT_RANK[format]) await saveCopy({ ...c, upgrade_wanted: false });
-    }
-    await saveCopy({
-      id: crypto.randomUUID(),
-      movie_id: movie.id,
+    const { movie } = await addDisc({
+      movie: pick.movie,
+      tmdb: pick.tmdb,
+      manual: pick.manual ? { title: title.trim(), year: Number(year) || null } : undefined,
       format,
       barcode,
-      edition: edition.trim() || null,
-      location: location.trim() || null,
-      notes: notes.trim() || null,
-      upgrade_wanted: false,
-      added_by: (await getMeta("deviceName")) ?? null,
-      deleted: false,
+      edition,
+      location,
+      notes,
     });
     go(`#/movie/${movie.id}`);
   };

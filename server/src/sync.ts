@@ -11,68 +11,100 @@ const base = {
   updated_by: z.string().min(1),
   deleted: z.boolean().default(false),
 };
+const str = z.string().nullable().optional();
+const int = z.number().int().nullable().optional();
 
 const MovieIn = z.object({
   ...base,
-  tmdb_id: z.number().int().nullable().optional(),
+  tmdb_id: int,
   title: z.string().min(1),
-  year: z.number().int().nullable().optional(),
-  poster_path: z.string().nullable().optional(),
-  overview: z.string().nullable().optional(),
-  runtime: z.number().int().nullable().optional(),
+  year: int,
+  poster_path: str,
+  overview: str,
+  runtime: int,
+  genres: str,
+  collection_id: int,
+  collection_name: str,
 });
 
 const CopyIn = z.object({
   ...base,
   movie_id: z.string().uuid(),
   format: z.enum(["dvd", "bluray", "uhd", "other"]),
-  barcode: z.string().nullable().optional(),
-  edition: z.string().nullable().optional(),
-  location: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  barcode: str,
+  edition: str,
+  location: str,
+  notes: str,
   upgrade_wanted: z.boolean().default(false),
-  added_by: z.string().nullable().optional(),
+  added_by: str,
+  created_at: int,
 });
+
+const HuntIn = z.object({
+  ...base,
+  tmdb_id: int,
+  title: z.string().min(1),
+  year: int,
+  poster_path: str,
+  notes: str,
+  found: z.boolean().default(false),
+  added_by: str,
+});
+
+/**
+ * Every synced table is described once here: its columns (besides seq) and which
+ * columns are booleans. Adding a table to sync = one entry.
+ */
+const TABLES = {
+  movies: {
+    schema: MovieIn,
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "overview", "runtime", "genres", "collection_id", "collection_name", "updated_at", "updated_by", "deleted"],
+    bools: ["deleted"],
+  },
+  copies: {
+    schema: CopyIn,
+    columns: ["id", "movie_id", "format", "barcode", "edition", "location", "notes", "upgrade_wanted", "added_by", "created_at", "updated_at", "updated_by", "deleted"],
+    bools: ["deleted", "upgrade_wanted"],
+  },
+  hunts: {
+    schema: HuntIn,
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "notes", "found", "added_by", "updated_at", "updated_by", "deleted"],
+    bools: ["deleted", "found"],
+  },
+} as const;
+type TableName = keyof typeof TABLES;
+const NAMES = Object.keys(TABLES) as TableName[];
 
 const SyncRequest = z.object({
   device_id: z.string().min(1),
-  device_name: z.string().optional(), // e.g. "Nick's iPhone" — shown in /api/devices
+  device_name: z.string().optional(), // e.g. "Nick" — shown in notifications and /api/devices
   cursor: z.number().int().min(0).default(0),
   changes: z
     .object({
       movies: z.array(MovieIn).default([]),
       copies: z.array(CopyIn).default([]),
+      hunts: z.array(HuntIn).default([]),
     })
-    .default({ movies: [], copies: [] }),
+    .default({ movies: [], copies: [], hunts: [] }),
 });
 
-type Movie = z.infer<typeof MovieIn>;
-type Copy = z.infer<typeof CopyIn>;
+const stmts = Object.fromEntries(
+  NAMES.map((t) => {
+    const cols = [...TABLES[t].columns, "seq"];
+    const sets = cols.filter((c) => c !== "id").map((c) => `${c}=excluded.${c}`).join(", ");
+    return [
+      t,
+      {
+        ts: db.prepare(`SELECT updated_at FROM ${t} WHERE id = ?`),
+        upsert: db.prepare(`INSERT INTO ${t} (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})
+          ON CONFLICT(id) DO UPDATE SET ${sets}`),
+        changed: db.prepare(`SELECT * FROM ${t} WHERE seq > ? ORDER BY seq`),
+        all: db.prepare(`SELECT * FROM ${t} WHERE deleted = 0 ORDER BY seq`),
+      },
+    ];
+  }),
+) as Record<TableName, { ts: any; upsert: any; changed: any; all: any }>;
 
-const getMovieTs = db.prepare("SELECT updated_at FROM movies WHERE id = ?");
-const getCopyTs = db.prepare("SELECT updated_at FROM copies WHERE id = ?");
-
-const upsertMovie = db.prepare(`
-INSERT INTO movies (id, tmdb_id, title, year, poster_path, overview, runtime, updated_at, updated_by, deleted, seq)
-VALUES (@id, @tmdb_id, @title, @year, @poster_path, @overview, @runtime, @updated_at, @updated_by, @deleted, @seq)
-ON CONFLICT(id) DO UPDATE SET
-  tmdb_id=excluded.tmdb_id, title=excluded.title, year=excluded.year, poster_path=excluded.poster_path,
-  overview=excluded.overview, runtime=excluded.runtime, updated_at=excluded.updated_at,
-  updated_by=excluded.updated_by, deleted=excluded.deleted, seq=excluded.seq`);
-
-const upsertCopy = db.prepare(`
-INSERT INTO copies (id, movie_id, format, barcode, edition, location, notes, upgrade_wanted, added_by, updated_at, updated_by, deleted, seq)
-VALUES (@id, @movie_id, @format, @barcode, @edition, @location, @notes, @upgrade_wanted, @added_by, @updated_at, @updated_by, @deleted, @seq)
-ON CONFLICT(id) DO UPDATE SET
-  movie_id=excluded.movie_id, format=excluded.format, barcode=excluded.barcode, edition=excluded.edition,
-  location=excluded.location, notes=excluded.notes, upgrade_wanted=excluded.upgrade_wanted,
-  added_by=excluded.added_by, updated_at=excluded.updated_at, updated_by=excluded.updated_by,
-  deleted=excluded.deleted, seq=excluded.seq`);
-
-const changedMovies = db.prepare("SELECT * FROM movies WHERE seq > ? ORDER BY seq");
-const changedCopies = db.prepare("SELECT * FROM copies WHERE seq > ? ORDER BY seq");
-const allMovies = db.prepare("SELECT * FROM movies WHERE deleted = 0 ORDER BY seq");
-const allCopies = db.prepare("SELECT * FROM copies WHERE deleted = 0 ORDER BY seq");
 const getDevice = db.prepare("SELECT last_sync_at FROM devices WHERE device_id = ?");
 const touchDevice = db.prepare(`
 INSERT INTO devices(device_id, name, last_sync_at) VALUES (?, ?, ?)
@@ -89,33 +121,31 @@ function fullCopyReason(deviceId: string, cursor: number): string | null {
   return null;
 }
 
-const applyChanges = db.transaction((movies: Movie[], copies: Copy[]) => {
+/** Write one row coming from a phone (or the server's own enrichment), last-write-wins. */
+export function upsertRow(table: TableName, row: Record<string, unknown>): boolean {
+  const s = stmts[table];
+  const existing = s.ts.get(row.id) as { updated_at: number } | undefined;
+  if (existing && existing.updated_at >= (row.updated_at as number)) return false;
+  const params: Record<string, unknown> = {};
+  for (const c of TABLES[table].columns) params[c] = row[c] ?? null;
+  for (const b of TABLES[table].bools) params[b] = row[b] ? 1 : 0;
+  params.seq = nextSeq();
+  s.upsert.run(params);
+  return true;
+}
+
+const applyChanges = db.transaction((changes: Record<TableName, Record<string, unknown>[]>) => {
   let accepted = 0;
   let rejected = 0;
-  for (const m of movies) {
-    const existing = getMovieTs.get(m.id) as { updated_at: number } | undefined;
-    if (existing && existing.updated_at >= m.updated_at) { rejected++; continue; }
-    upsertMovie.run({
-      tmdb_id: null, year: null, poster_path: null, overview: null, runtime: null,
-      ...m, deleted: m.deleted ? 1 : 0, seq: nextSeq(),
-    });
-    accepted++;
-  }
-  for (const c of copies) {
-    const existing = getCopyTs.get(c.id) as { updated_at: number } | undefined;
-    if (existing && existing.updated_at >= c.updated_at) { rejected++; continue; }
-    upsertCopy.run({
-      barcode: null, edition: null, location: null, notes: null, added_by: null,
-      ...c, deleted: c.deleted ? 1 : 0, upgrade_wanted: c.upgrade_wanted ? 1 : 0, seq: nextSeq(),
-    });
-    accepted++;
-  }
+  for (const t of NAMES) for (const row of changes[t]) upsertRow(t, row) ? accepted++ : rejected++;
   return { accepted, rejected };
 });
 
-const toBool = <T extends Record<string, unknown>>(row: T, keys: string[]) => {
+const toBool = (table: TableName, row: Record<string, unknown>) => {
   const out: Record<string, unknown> = { ...row };
-  for (const k of keys) out[k] = Boolean(out[k]);
+  delete out.seq;
+  delete out.enriched;
+  for (const k of TABLES[table].bools) out[k] = Boolean(out[k]);
   return out;
 };
 
@@ -123,16 +153,12 @@ export const syncRouter = Router();
 
 /**
  * POST /api/sync
- * Body: { device_id, device_name?, cursor, changes: { movies: [...], copies: [...] } }
- * Returns: { full, reason, cursor, server_time, applied, changes: { movies, copies } }
+ * Body: { device_id, device_name?, cursor, changes: { movies, copies, hunts } }
+ * Returns: { full, reason, cursor, server_time, applied, changes: { movies, copies, hunts } }
  *
- * The phone sends everything it changed locally since its last successful sync,
- * then stores the returned cursor.
- *
- * full = false → `changes` is a delta: upsert each row locally, drop rows with deleted = true.
+ * full = false → `changes` is a delta: upsert each row locally (deleted = true rows are tombstones).
  * full = true  → `changes` is the ENTIRE collection: replace local data with it.
  *               (Sent on first sync, or if the phone hasn't synced in FULL_RESYNC_DAYS.)
- *               The phone's own pending edits were already applied above, so nothing is lost.
  */
 syncRouter.post("/sync", (req, res) => {
   const parsed = SyncRequest.safeParse(req.body);
@@ -142,30 +168,23 @@ syncRouter.post("/sync", (req, res) => {
   }
   const { cursor, changes, device_id, device_name } = parsed.data;
   const reason = fullCopyReason(device_id, cursor); // decide BEFORE touching last_sync_at
-  const applied = applyChanges(changes.movies, changes.copies);
+  const applied = applyChanges(changes as Record<TableName, Record<string, unknown>[]>);
   if (applied.accepted > 0) {
     broadcastChange(device_id);
     queueDigest(device_id);
   }
 
   const full = reason !== null;
-  const movieRows = (full ? allMovies.all() : changedMovies.all(cursor)) as Record<string, unknown>[];
-  const copyRows = (full ? allCopies.all() : changedCopies.all(cursor)) as Record<string, unknown>[];
+  const out = {} as Record<TableName, unknown[]>;
+  for (const t of NAMES) {
+    const rows = (full ? stmts[t].all.all() : stmts[t].changed.all(cursor)) as Record<string, unknown>[];
+    out[t] = rows.map((r) => toBool(t, r));
+  }
 
   const now = Date.now();
   touchDevice.run(device_id, device_name ?? null, now);
 
-  res.json({
-    full,
-    reason,
-    cursor: currentSeq(),
-    server_time: now,
-    applied,
-    changes: {
-      movies: movieRows.map((r) => toBool(r, ["deleted"])),
-      copies: copyRows.map((r) => toBool(r, ["deleted", "upgrade_wanted"])),
-    },
-  });
+  res.json({ full, reason, cursor: currentSeq(), server_time: now, applied, changes: out });
 });
 
 /** GET /api/devices — when each phone last synced (handy for "is her phone up to date?"). */

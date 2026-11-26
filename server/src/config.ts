@@ -17,6 +17,9 @@ export const config = {
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:keeper@example.com",
   pushDebounceMinutes: Number(process.env.PUSH_DEBOUNCE_MINUTES ?? 10),
   pushMinHours: Number(process.env.PUSH_MIN_HOURS ?? 12),
+  // Only changed for testing against mock services.
+  tmdbBase: process.env.TMDB_API_BASE ?? "https://api.themoviedb.org/3",
+  upcBase: process.env.UPC_API_BASE ?? "https://api.upcitemdb.com",
 };
 
 if (!config.apiToken) {

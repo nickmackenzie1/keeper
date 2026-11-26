@@ -100,6 +100,14 @@ try {
   const stats = await (await fetch(`${BASE}/stats`, { headers: H })).json() as any;
   assert.equal(stats.movies, 2); assert.equal(stats.copies, 0); ok("stats exclude deleted copies");
 
+  // Hunt list syncs to the other phone, with booleans intact
+  const hunt = { id: randomUUID(), tmdb_id: 679, title: "Aliens", year: 1986, found: false, updated_at: Date.now(), updated_by: "phoneA" };
+  const h1 = await fetch(`${BASE}/sync`, { method: "POST", headers: H, body: JSON.stringify({ device_id: "phoneA", cursor: 0, changes: { hunts: [hunt] } }) }).then((r) => r.json()) as any;
+  assert.equal(h1.applied.accepted, 1);
+  const hb = await sync("phoneB", stale.cursor);
+  const got = hb.changes.hunts.find((h: any) => h.id === hunt.id);
+  assert.equal(got.title, "Aliens"); assert.equal(got.found, false); ok("hunt list syncs between phones");
+
   // Bad payload
   assert.equal((await fetch(`${BASE}/sync`, { method: "POST", headers: H, body: JSON.stringify({ cursor: 0 }) })).status, 400); ok("invalid payload rejected");
 

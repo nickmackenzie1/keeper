@@ -72,7 +72,42 @@ CREATE TABLE IF NOT EXISTS barcode_cache (
   payload    TEXT NOT NULL,
   fetched_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS hunts (
+  id           TEXT PRIMARY KEY,
+  tmdb_id      INTEGER,
+  title        TEXT NOT NULL,
+  year         INTEGER,
+  poster_path  TEXT,
+  notes        TEXT,
+  found        INTEGER NOT NULL DEFAULT 0,
+  added_by     TEXT,
+  updated_at   INTEGER NOT NULL,
+  updated_by   TEXT NOT NULL,
+  deleted      INTEGER NOT NULL DEFAULT 0,
+  seq          INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hunts_seq ON hunts(seq);
+
+-- TMDB collection ("series") contents, cached for the series-gaps view.
+CREATE TABLE IF NOT EXISTS series_cache (
+  collection_id INTEGER PRIMARY KEY,
+  payload       TEXT NOT NULL,
+  fetched_at    INTEGER NOT NULL
+);
 `);
+
+// ---- Migrations for columns added after v0.1 ----
+function addColumn(table: string, column: string, type: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+addColumn("movies", "genres", "TEXT");          // "Horror, Sci-Fi"
+addColumn("movies", "collection_id", "INTEGER"); // TMDB collection = series
+addColumn("movies", "collection_name", "TEXT");
+addColumn("movies", "enriched", "INTEGER NOT NULL DEFAULT 0");
+addColumn("copies", "created_at", "INTEGER");   // when the disc was added (for "biggest month")
+db.exec("UPDATE copies SET created_at = updated_at WHERE created_at IS NULL");
 
 export function nextSeq(): number {
   const row = db
@@ -99,7 +134,7 @@ export function purgeTombstones(days: number) {
   const cutoff = Date.now() - days * 86_400_000;
   const tx = db.transaction(() => {
     let maxSeq = getMeta("purged_through_seq");
-    for (const table of ["movies", "copies"]) {
+    for (const table of ["movies", "copies", "hunts"]) {
       const r = db.prepare(`SELECT MAX(seq) m FROM ${table} WHERE deleted = 1 AND updated_at < ?`).get(cutoff) as { m: number | null };
       if (r.m) maxSeq = Math.max(maxSeq, r.m);
       db.prepare(`DELETE FROM ${table} WHERE deleted = 1 AND updated_at < ?`).run(cutoff);

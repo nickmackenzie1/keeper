@@ -1,8 +1,7 @@
 # Builds the web app and the server into one image.
 
 # ---- web app ----
-# The web app is plain static files, so build it once on the fast native runner.
-FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS web
+FROM node:22-bookworm-slim AS web
 WORKDIR /web
 COPY web/package*.json ./
 RUN npm ci

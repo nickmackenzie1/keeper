@@ -57,22 +57,19 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 - **Rare finds** — every store scan is logged, so after a few trips Keeper can say "first time you've seen this in 14 trips".
 - Genres and series fill in automatically from TMDB (also for discs added earlier).
 
-## Updating (automatic)
+## Updating
 
-Push to `main` → GitHub Actions runs the tests and publishes `ghcr.io/nickmackenzie1/keeper:latest`
-(Intel/AMD + ARM) → the `watchtower` container on the NAS notices within ~5 minutes and restarts Keeper on
-the new image. `.env` and `data/` are never touched. Phones pick up the new app version next time they open it.
+On GitHub: **Code → Download ZIP**, copy it over `/volume1/docker/keeper` (keep `.env` and `data/`),
+then Container Manager → Project → keeper → **Stop → Build → Start**.
+Or over SSH: `cd /volume1/docker/keeper && git pull && sudo docker compose up -d --build`
 
-One-time setup:
-1. After the first successful Action run, open GitHub → your profile → **Packages → keeper → Package settings**
-   and set visibility to **Public** (the image contains no secrets — those live in `.env` on the NAS).
-   *Prefer private?* Make a GitHub token with `read:packages`, then on the NAS run
-   `sudo docker login ghcr.io -u nickmackenzie1` and add `- /root/.docker/config.json:/config.json:ro`
-   to the watchtower volumes.
-2. On the NAS the folder only needs `docker-compose.yml` and `.env` (plus `data/`).
-3. Container Manager → stop the project → **Build** (it now pulls instead of building) → start.
+### Auto-update (optional, later)
 
-Manual update any time: `sudo docker compose pull && sudo docker compose up -d`.
+GitHub Actions already publishes every push to `ghcr.io/nickmackenzie1/keeper:latest`. To have the NAS pick it up
+automatically: make that package Public on GitHub, replace `build: .` / `image: keeper-local` in
+`docker-compose.yml` with `image: ghcr.io/nickmackenzie1/keeper:latest`, add the label
+`com.centurylinklabs.watchtower.enable=true` to the keeper service, and add a `nickfedor/watchtower` service
+(`WATCHTOWER_LABEL_ENABLE=true`, `WATCHTOWER_POLL_INTERVAL=300`, `WATCHTOWER_CLEANUP=true`, docker.sock mounted).
 
 ## How staying in sync works
 

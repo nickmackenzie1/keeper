@@ -18,7 +18,7 @@ import { useRoute } from "./util";
 
 const TABS = [
   { id: "check", label: "Check", Icon: IconScan },
-  { id: "shelf", label: "Collection", Icon: IconShelf },
+  { id: "shelf", label: "Shelf", Icon: IconShelf },
   { id: "hunt", label: "Hunt", Icon: IconTarget },
   { id: "stats", label: "Stats", Icon: IconStar },
   { id: "settings", label: "Settings", Icon: IconSettings },

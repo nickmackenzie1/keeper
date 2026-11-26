@@ -1,3 +1,4 @@
+import { ScreenTitle } from "./Zone";
 import { Skeleton } from "./Skeleton";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { fetchSeries } from "../lib/api";
@@ -121,7 +122,7 @@ export function Stats() {
     <div class="screen">
       <header class="screen-head">
         <div class="row between">
-          <h1>Stats</h1>
+          <ScreenTitle title="Stats" />
           <SyncPill />
         </div>
       </header>

@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { registerSW } from "virtual:pwa-register";
 import { App } from "./ui/App";
-import { applySkin, type Skin } from "./ui/skins";
+import { applySkin, DEFAULT_SKIN, type Skin } from "./ui/skins";
 import { getMeta } from "./lib/db";
 import "./styles.css";
 
@@ -13,7 +13,7 @@ getMeta("theme").then((s) => {
   } catch {
     /* private mode */
   }
-  applySkin(((s as Skin | undefined) ?? (local as Skin | null) ?? "catalog") as Skin);
+  applySkin(((s as Skin | undefined) ?? (local as Skin | null) ?? DEFAULT_SKIN) as Skin);
 });
 
 // New versions install in the background and take over on next launch.

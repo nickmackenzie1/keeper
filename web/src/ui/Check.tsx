@@ -1,3 +1,7 @@
+import { ScreenTitle, ZoneTitle } from "./Zone";
+import { currentSkin } from "./skins";
+import { posterUrl } from "../lib/types";
+import { tint } from "./util";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { copiesFor } from "../lib/db";
 import { searchHunts, searchLocal, verdictForBarcode, verdictForCover, type Verdict } from "../lib/verdict";
@@ -43,18 +47,100 @@ function summary(v: Verdict): string {
   }
 }
 
+function addHrefFor(v: Verdict) {
+  const cand = v.lookup?.candidates[0];
+  const q = new URLSearchParams();
+  if (v.lookup?.barcode) q.set("barcode", v.lookup.barcode);
+  if (v.scanned) q.set("format", v.scanned);
+  const tmdb = v.movie?.tmdb_id ?? cand?.tmdb_id;
+  if (tmdb) q.set("tmdb", String(tmdb));
+  if (v.movie) q.set("movie", v.movie.id);
+  return `#/add?${q}`;
+}
+
+/** Marquee: the result announced like entering a new zone, over the movie's own poster. */
+function VerdictReveal({ v, onNext, onClose }: { v: Verdict; onNext: () => void; onClose: () => void }) {
+  const [skip, setSkip] = useState(false);
+  const cand = v.lookup?.candidates[0];
+  const display = v.movie ?? (cand ? { title: cand.title, year: cand.year, poster_path: cand.poster_path } : null);
+  const kind = v.unknown ? "unknown" : v.hunt ? "hunt" : v.kind;
+  const WORD: Record<string, string> = { not_owned: "Grab it", upgrade: "Upgrade", have: "Got it", owned: "You own it", hunt: "Found it", unknown: "No match" };
+  const owned = [...new Set(v.copies.map((c) => FORMAT_LABEL[c.format]))].join(" + ");
+  const sub =
+    kind === "hunt" ? `On ${v.hunt?.added_by ? `${v.hunt.added_by}'s` : "the"} hunt list`
+    : kind === "upgrade" ? `You own the ${owned}`
+    : kind === "have" ? (v.exact ? "This exact disc is yours" : `You own the ${owned}`)
+    : kind === "owned" ? `You own the ${owned} — check the case`
+    : kind === "unknown" ? "Try typing the title"
+    : "Not in your collection";
+  const kicker = display
+    ? [display.title, display.year, v.scanned && v.scanned !== "other" ? FORMAT_LABEL[v.scanned] : null].filter(Boolean).join(" · ")
+    : "Scanned";
+  const bg = display ? posterUrl(display.poster_path, "w500") : null;
+
+  return (
+    <div class={`reveal reveal-${kind} ${skip ? "reveal-skip" : ""}`} role="dialog" aria-label={`${WORD[kind]}: ${kicker}`} onClick={() => setSkip(true)}>
+      <div class="reveal-bg" aria-hidden="true" style={{ background: display ? tint(display.title) : "#111" }}>
+        {bg && <img src={bg} alt="" />}
+        {!bg && display && <span class="reveal-ghost">{display.title}</span>}
+      </div>
+      <button class="reveal-close icon-btn" aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>×</button>
+      <div class="reveal-center" aria-live="polite">
+        <ZoneTitle
+          size="reveal"
+          play
+          kicker={kicker}
+          title={WORD[kind]}
+          sub={sub}
+          // Long words shrink so the rules always fit either side.
+          fontSize={`min(96px, ${Math.floor(78 / (WORD[kind].length * 0.47))}vw)`}
+        />
+        {v.rarity?.rare && kind !== "have" && <span class="reveal-rare">Rare find · first time in {v.rarity.trips} trips</span>}
+      </div>
+      <div class="reveal-panel" onClick={(e) => e.stopPropagation()}>
+        {v.copies.length > 0 && (
+          <ul class="reveal-copies">
+            {v.copies
+              .slice()
+              .sort((a, b) => FORMAT_RANK[b.format] - FORMAT_RANK[a.format])
+              .map((c) => (
+                <li key={c.id}>
+                  <span class="chip" data-format={c.format}>{FORMAT_SHORT[c.format]}</span>
+                  <span class="grow">{[c.edition, c.location, c.upgrade_wanted ? "on the upgrade list" : null].filter(Boolean).join(" · ") || FORMAT_LABEL[c.format]}</span>
+                  {c.added_by && <Person name={c.added_by} size={22} />}
+                </li>
+              ))}
+          </ul>
+        )}
+        {kind === "hunt" && v.hunt?.notes && <p class="reveal-note">{v.hunt.notes}</p>}
+        <div class="row">
+          {(v.kind === "not_owned" || v.kind === "upgrade") && !v.unknown && (
+            <a class="btn primary grow" href={addHrefFor(v)}>{v.kind === "upgrade" ? `Add ${FORMAT_LABEL[v.scanned!]}` : "Bought it"}</a>
+          )}
+          {v.movie && v.kind !== "upgrade" && <a class="btn grow" href={`#/movie/${v.movie.id}`}>Details</a>}
+          {v.kind === "not_owned" && !v.hunt && cand && <HuntButton hit={cand} />}
+          {kind === "unknown" && (
+            <button
+              class="btn primary grow"
+              onClick={() => {
+                onClose();
+                setTimeout(() => document.querySelector<HTMLInputElement>("input[aria-label='Search your collection']")?.focus(), 50);
+              }}
+            >
+              Type the title
+            </button>
+          )}
+          <button class="btn" onClick={onNext}>Next</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
   const cand = v.lookup?.candidates[0];
   const display = v.movie ?? (cand ? { title: cand.title, year: cand.year, poster_path: cand.poster_path } : null);
-  const addHref = () => {
-    const q = new URLSearchParams();
-    if (v.lookup?.barcode) q.set("barcode", v.lookup.barcode);
-    if (v.scanned) q.set("format", v.scanned);
-    const tmdb = v.movie?.tmdb_id ?? cand?.tmdb_id;
-    if (tmdb) q.set("tmdb", String(tmdb));
-    if (v.movie) q.set("movie", v.movie.id);
-    return `#/add?${q}`;
-  };
+  const addHref = () => addHrefFor(v);
   return (
     <section class={`verdict verdict-${v.unknown ? "unknown" : v.kind}`} aria-live="polite">
       {v.hunt && (
@@ -241,7 +327,7 @@ export function Check() {
     <div class="screen">
       <header class="screen-head">
         <div class="row between">
-          <h1>Check</h1>
+          <ScreenTitle title="Check" />
           <SyncPill />
         </div>
         <div class="row">
@@ -271,7 +357,7 @@ export function Check() {
       <div class="screen-body">
         {busy && <p class="muted center">Looking it up…</p>}
         {error && !busy && <p class="notice">{error}</p>}
-        {verdict && !busy && <VerdictCard v={verdict} onNext={next} />}
+        {verdict && !busy && currentSkin() !== "marquee" && <VerdictCard v={verdict} onNext={next} />}
 
         {!verdict && !busy && results && hunts.map((h) => (
           <div key={h.id} class="hunt-banner standalone">
@@ -330,6 +416,7 @@ export function Check() {
         )}
       </div>
 
+      {verdict && !busy && currentSkin() === "marquee" && <VerdictReveal v={verdict} onNext={next} onClose={() => setVerdict(null)} />}
       {scanning && <Scanner onCode={onCode} onClose={() => setScanning(false)} />}
       {haul && <Haul onClose={() => setHaul(false)} />}
       {shelf && <ShelfScan onClose={() => setShelf(false)} />}

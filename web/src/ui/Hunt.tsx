@@ -1,3 +1,4 @@
+import { ScreenTitle } from "./Zone";
 import { useState } from "preact/hooks";
 import { ApiError, searchTmdb } from "../lib/api";
 import { toast } from "../lib/celebrate";
@@ -53,7 +54,7 @@ export function Hunt() {
     <div class="screen">
       <header class="screen-head">
         <div class="row between">
-          <h1>Hunt list</h1>
+          <ScreenTitle title="Hunt list" />
           <SyncPill />
         </div>
         <form class="row" onSubmit={search}>

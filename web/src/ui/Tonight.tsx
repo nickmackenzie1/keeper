@@ -1,3 +1,4 @@
+import { ScreenTitle } from "./Zone";
 import { useMemo, useRef, useState } from "preact/hooks";
 import { allCopies, allMovies } from "../lib/db";
 import { chime, primeAudio } from "../lib/celebrate";
@@ -105,7 +106,7 @@ export function Tonight() {
     <div class="screen">
       <header class="screen-head">
         <div class="row between">
-          <h1>Movie night</h1>
+          <ScreenTitle title="Movie night" />
           <a class="btn ghost" href="#/shelf">Done</a>
         </div>
       </header>

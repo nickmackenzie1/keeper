@@ -1,3 +1,4 @@
+import { ScreenTitle } from "./Zone";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, coverScan, lookupBarcode, searchTmdb, tmdbDetails } from "../lib/api";
 import { preparePhoto } from "../lib/photo";
@@ -121,7 +122,7 @@ export function Add({ query }: { query: URLSearchParams }) {
   return (
     <div class="screen">
       <header class="screen-head">
-        <h1>Add a disc</h1>
+        <ScreenTitle title="Add a disc" />
         <form
           class="row"
           onSubmit={(e) => {

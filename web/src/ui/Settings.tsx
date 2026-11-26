@@ -1,10 +1,11 @@
+import { ScreenTitle } from "./Zone";
 import { Skeleton } from "./Skeleton";
 import { useEffect, useState } from "preact/hooks";
 import { diagnostics, listDevices } from "../lib/api";
 import { deviceId, getMeta, pendingCount, setMeta } from "../lib/db";
 import { sync } from "../lib/live";
 import { currentSubscription, disablePush, enablePush, isInstalled, pushSupported, testPush } from "../lib/push";
-import { SKINS, applySkin, type Skin } from "./skins";
+import { DEFAULT_SKIN, SKINS, applySkin, type Skin } from "./skins";
 import { timeAgo, useData } from "./util";
 
 export function Settings() {
@@ -12,7 +13,7 @@ export function Settings() {
     name: (await getMeta("deviceName")) ?? "",
     lastSyncAt: await getMeta("lastSyncAt"),
     pending: await pendingCount(),
-    skin: ((await getMeta("theme")) as Skin) ?? "catalog",
+    skin: ((await getMeta("theme")) as Skin) ?? DEFAULT_SKIN,
     me: await deviceId(),
   }));
   const [devices, setDevices] = useState<Awaited<ReturnType<typeof listDevices>>["devices"] | null>(null);
@@ -31,7 +32,7 @@ export function Settings() {
   return (
     <div class="screen">
       <header class="screen-head">
-        <h1>Settings</h1>
+        <ScreenTitle title="Settings" />
       </header>
       <div class="screen-body">
         <section class="card">

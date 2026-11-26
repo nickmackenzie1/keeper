@@ -1,3 +1,5 @@
+import { ScreenTitle, ZoneTitle } from "./Zone";
+import { currentSkin } from "./skins";
 import { Skeleton } from "./Skeleton";
 import { useMemo, useState } from "preact/hooks";
 import { allCopies, allMovies } from "../lib/db";
@@ -16,6 +18,10 @@ const FILTERS: [Filter, string][] = [
   ["uhd", "4K"],
   ["upgrade", "Upgrade list"],
 ];
+
+const NUMBERS = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen"];
+const WORDS: Record<number, string> = { 1920: "Twenties", 1930: "Thirties", 1940: "Forties", 1950: "Fifties", 1960: "Sixties", 1970: "Seventies", 1980: "Eighties", 1990: "Nineties" };
+const decadeName = (d: number) => (d === 0 ? "Undated" : WORDS[d] ? `The ${WORDS[d]}` : `The ${d}s`);
 
 export function Shelf() {
   const data = useData(async () => ({ movies: await allMovies(), copies: await allCopies() }));
@@ -51,7 +57,18 @@ export function Shelf() {
   }, [data, q, filter, byMovie]);
 
   // Midnight skin defaults to the poster grid; others to the list.
-  const isGrid = grid ?? document.documentElement.dataset.skin === "midnight";
+  const skin = currentSkin();
+  const isGrid = grid ?? (skin === "midnight" || skin === "marquee");
+  // Marquee: the poster wall is split into chapters by decade (when not searching).
+  const chapters = useMemo(() => {
+    if (skin !== "marquee" || q.trim()) return null;
+    const groups = new Map<number, Movie[]>();
+    for (const m of shown) {
+      const d = m.year ? Math.floor(m.year / 10) * 10 : 0;
+      groups.set(d, [...(groups.get(d) ?? []), m]);
+    }
+    return [...groups.entries()].sort((a, b) => (a[0] || 9999) - (b[0] || 9999));
+  }, [shown, skin, q]);
   const badge = (m: Movie) => {
     const cs = byMovie.get(m.id) ?? [];
     const best = cs.reduce<Format | null>((a, c) => (!a || FORMAT_RANK[c.format] > FORMAT_RANK[a] ? c.format : a), null);
@@ -64,7 +81,7 @@ export function Shelf() {
     <div class="screen">
       <header class="screen-head">
         <div class="row between">
-          <h1>Collection</h1>
+          <ScreenTitle title="Collection" />
           <div class="row">
             <SyncPill />
             <a class="btn primary icon-btn" href="#/add" aria-label="Add a disc"><IconPlus /></a>
@@ -101,7 +118,27 @@ export function Shelf() {
             <a class="btn primary" href="#/add">Add your first disc</a>
           </div>
         )}
-        {isGrid ? (
+        {isGrid && chapters ? (
+          chapters.map(([decade, movies], i) => (
+            <section key={decade} class="chapter">
+              <ZoneTitle
+                size="chapter"
+                as="h2"
+                kicker={`Chapter ${NUMBERS[i] ?? i + 1}`}
+                title={decadeName(decade)}
+              />
+              <ul class="poster-grid">
+                {movies.map((m) => (
+                  <li key={m.id}>
+                    <a href={`#/movie/${m.id}`} aria-label={`${m.title}${m.year ? `, ${m.year}` : ""}`}>
+                      <Poster movie={m} badge={badge(m)} />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        ) : isGrid ? (
           <ul class="poster-grid">
             {shown.map((m) => (
               <li key={m.id}>

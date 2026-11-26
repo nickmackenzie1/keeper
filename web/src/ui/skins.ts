@@ -1,6 +1,12 @@
-export type Skin = "rewind" | "midnight" | "catalog" | "latefee";
+export type Skin = "marquee" | "rewind" | "midnight" | "catalog" | "latefee";
+
+export const DEFAULT_SKIN: Skin = "marquee";
+
+/** The skin in use right now (set on <html> before first paint). */
+export const currentSkin = () => (document.documentElement.dataset.skin as Skin) || DEFAULT_SKIN;
 
 export const SKINS: { id: Skin; name: string; blurb: string; bg: string; fg: string; accent: string; themeColor: string }[] = [
+  { id: "marquee", name: "Marquee", blurb: "Posters, big type", bg: "#050505", fg: "#FFFFFF", accent: "#FDBA4D", themeColor: "#050505" },
   { id: "catalog", name: "Catalog", blurb: "Clean and light", bg: "#F6F7F9", fg: "#111827", accent: "#2563EB", themeColor: "#F6F7F9" },
   { id: "midnight", name: "Midnight", blurb: "Dark, poster-first", bg: "#0D0E12", fg: "#F1F2F5", accent: "#F5B841", themeColor: "#0D0E12" },
   { id: "rewind", name: "Rewind", blurb: "90s video store", bg: "#FFFFFF", fg: "#111111", accent: "#FF6A2B", themeColor: "#FFFFFF" },

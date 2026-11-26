@@ -1,3 +1,4 @@
+import { uuid } from "./uuid";
 import { tmdbDetails } from "./api";
 import { copiesFor, getMeta, markHuntsFound, movieByTmdb, saveCopy, saveMovie } from "./db";
 import { FORMAT_RANK, type Copy, type Format, type Movie, type TmdbHit } from "./types";
@@ -25,7 +26,7 @@ export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy
     let d: Partial<TmdbHit> = input.tmdb ?? {};
     if (input.tmdb && d.genres === undefined) d = await tmdbDetails(input.tmdb.tmdb_id).catch(() => input.tmdb!);
     movie = await saveMovie({
-      id: crypto.randomUUID(),
+      id: uuid(),
       tmdb_id: input.tmdb?.tmdb_id ?? null,
       title: input.manual?.title ?? d.title ?? "Untitled",
       year: input.manual ? input.manual.year : d.year ?? null,
@@ -50,7 +51,7 @@ export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy
   }
 
   const copy = await saveCopy({
-    id: crypto.randomUUID(),
+    id: uuid(),
     movie_id: movie.id,
     format: input.format,
     barcode: input.barcode ?? null,

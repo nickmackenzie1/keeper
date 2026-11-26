@@ -29,7 +29,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
             : err.kind === "login_required"
               ? "Sign in through Cloudflare first, then try again."
               : "Can't reach the Keeper server."
-          : "Something went wrong.",
+          : `Something went wrong: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       setBusy(false);
@@ -41,6 +41,12 @@ export function Setup({ onDone }: { onDone: () => void }) {
       <div class="screen-body">
         <h1 class="brand">Keeper</h1>
         <p>Your movie collection, in your pocket. Set up this phone once.</p>
+        {!window.isSecureContext && (
+          <p class="notice">
+            You're on a plain <b>http://</b> address. Keeper will work, but the camera scanner, offline mode and notifications
+            need the secure address — open <b>https://keeper.mackenzie.house</b> instead, and add that one to your Home Screen.
+          </p>
+        )}
         <form class="stack gap" onSubmit={submit}>
           <label class="field">
             Whose phone is this?

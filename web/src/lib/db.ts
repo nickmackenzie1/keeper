@@ -1,3 +1,4 @@
+import { uuid } from "./uuid";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Copy, Hunt, Movie, Series } from "./types";
 
@@ -63,7 +64,7 @@ export async function setMeta<K extends keyof Meta>(key: K, value: Meta[K]) {
 export async function deviceId(): Promise<string> {
   let id = await getMeta("deviceId");
   if (!id) {
-    id = crypto.randomUUID();
+    id = uuid();
     await setMeta("deviceId", id);
   }
   return id;
@@ -144,7 +145,7 @@ export async function addHunt(hit: { tmdb_id: number | null; title: string; year
   const existing = (await allHunts()).find((h) => !h.found && ((hit.tmdb_id && h.tmdb_id === hit.tmdb_id) || h.title === hit.title));
   if (existing) return existing;
   return saveHunt({
-    id: crypto.randomUUID(),
+    id: uuid(),
     tmdb_id: hit.tmdb_id,
     title: hit.title,
     year: hit.year,

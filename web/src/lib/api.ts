@@ -37,12 +37,24 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
   if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
     throw new ApiError("Sign in again", "login_required", res.status);
   }
-  if (res.status === 401) throw new ApiError("Wrong access code", "unauthorized", 401);
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
-    // e.g. an HTML login page served with 200 by a proxy
-    throw new ApiError("Sign in again", "login_required", res.status);
+    // Not Keeper answering: either Cloudflare's login page, or Cloudflare saying the
+    // server is down (e.g. restarting after an auto-update). Tell those apart.
+    const text = await res.text().catch(() => "");
+    if (/cloudflareaccess\.com|cf-access|Cloudflare Access|Sign in ・ Cloudflare/i.test(text) || res.status === 403) {
+      throw new ApiError("Sign in again", "login_required", res.status);
+    }
+    if (res.status >= 500 || res.status === 0) {
+      throw new ApiError(
+        `Keeper's server isn't responding (HTTP ${res.status}). It may be restarting after an update — try again in a minute.`,
+        "server",
+        res.status,
+      );
+    }
+    throw new ApiError(`Unexpected answer from the server (HTTP ${res.status})`, "server", res.status);
   }
+  if (res.status === 401) throw new ApiError("Wrong access code", "unauthorized", 401);
   const body = await res.json();
   if (!res.ok) throw new ApiError(body?.error ?? `Error ${res.status}`, "server", res.status);
   return body as T;

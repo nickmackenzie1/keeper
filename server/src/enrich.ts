@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { db } from "./db.js";
 import { cleanTitle, movieDetails, searchMovies, tmdb } from "./lookup.js";
 import { upsertRow } from "./sync.js";
+import { posterColors } from "./colors.js";
 import { broadcastChange } from "./events.js";
 
 /**
@@ -49,6 +50,36 @@ export async function enrichMovies(limit = 40) {
     }
   } finally {
     running = false;
+  }
+  if (n > 0) broadcastChange("server");
+  return n;
+}
+
+/** Give every movie its poster colours (again, whenever its poster changes). */
+let colouring = false;
+export async function colourMovies(limit = 60) {
+  if (colouring) return 0;
+  colouring = true;
+  let n = 0;
+  try {
+    const rows = db
+      .prepare("SELECT * FROM movies WHERE deleted = 0 AND poster_path IS NOT NULL AND (palette_for IS NULL OR palette_for != poster_path) LIMIT ?")
+      .all(limit) as Record<string, any>[];
+    for (const m of rows) {
+      const p = await posterColors(m.poster_path);
+      if (!p) continue; // offline or no image; try again next round
+      upsertRow("movies", {
+        ...m,
+        poster_bg: p.bg,
+        poster_accent: p.accent,
+        palette_for: m.poster_path,
+        updated_at: Math.max(Date.now(), m.updated_at + 1),
+        updated_by: "server",
+      });
+      n++;
+    }
+  } finally {
+    colouring = false;
   }
   if (n > 0) broadcastChange("server");
   return n;

@@ -25,6 +25,7 @@ export const config = {
   // Only changed for testing against mock services.
   anthropicBase: process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com",
   tmdbBase: process.env.TMDB_API_BASE ?? "https://api.themoviedb.org/3",
+  tmdbImageBase: process.env.TMDB_IMAGE_BASE ?? "https://image.tmdb.org/t/p",
   upcBase: process.env.UPC_API_BASE ?? "https://api.upcitemdb.com",
 };
 

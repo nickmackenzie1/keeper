@@ -2,6 +2,7 @@ import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
 import { sight } from "./sightings.js";
+import { posterColors } from "./colors.js";
 
 const TMDB = config.tmdbBase;
 
@@ -53,7 +54,9 @@ export async function movieDetails(id: number) {
   // Age rating: prefer Canada, then US.
   const rd = (m.release_dates?.results ?? []) as { iso_3166_1: string; release_dates: { certification: string }[] }[];
   const cert = (cc: string) => rd.find((r) => r.iso_3166_1 === cc)?.release_dates.map((d) => d.certification).find((c) => c) ?? null;
+  const hit = toHit(m);
   return {
+    palette: await posterColors(hit.poster_path),
     certification: cert("CA") ?? cert("US"),
     ...toHit(m),
     runtime: (m.runtime as number) || null,
@@ -153,7 +156,9 @@ lookupRouter.get("/barcode/:upc", async (req, res, next) => {
     const product = await upcLookup(upc);
     if (!product) { res.json({ barcode: upc, product_title: null, format: null, candidates: [] }); return; }
     const title = cleanTitle(product.title);
-    const candidates = title ? await searchMovies(title) : [];
+    const candidates: (Awaited<ReturnType<typeof searchMovies>>[number] & { palette?: unknown })[] = title ? await searchMovies(title) : [];
+    // The reveal screen uses the top match's poster colours.
+    if (candidates[0]) candidates[0].palette = await posterColors(candidates[0].poster_path);
     // Log that we saw this in a store; tells the phone if it's a rare find for you.
     // Only scans from the store screens (?store=1) count — not adding discs at home.
     const rarity = candidates[0] && req.query.store === "1" ? sight(candidates[0].tmdb_id, candidates[0].title, "barcode") : null;

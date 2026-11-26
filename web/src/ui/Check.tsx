@@ -77,10 +77,19 @@ function VerdictReveal({ v, onNext, onClose }: { v: Verdict; onNext: () => void;
     ? [display.title, display.year, v.scanned && v.scanned !== "other" ? FORMAT_LABEL[v.scanned] : null].filter(Boolean).join(" · ")
     : "Scanned";
   const bg = display ? posterUrl(display.poster_path, "w500") : null;
+  // The screen takes its colours from the movie's poster (falls back to the verdict colour).
+  const accent = v.movie?.poster_accent ?? cand?.palette?.accent ?? undefined;
+  const tone = v.movie?.poster_bg ?? cand?.palette?.bg ?? (display ? tint(display.title) : "#111");
 
   return (
-    <div class={`reveal reveal-${kind} ${skip ? "reveal-skip" : ""}`} role="dialog" aria-label={`${WORD[kind]}: ${kicker}`} onClick={() => setSkip(true)}>
-      <div class="reveal-bg" aria-hidden="true" style={{ background: display ? tint(display.title) : "#111" }}>
+    <div
+      class={`reveal reveal-${kind} ${skip ? "reveal-skip" : ""}`}
+      role="dialog"
+      aria-label={`${WORD[kind]}: ${kicker}`}
+      onClick={() => setSkip(true)}
+      style={accent ? ({ "--rv": accent } as Record<string, string>) : undefined}
+    >
+      <div class="reveal-bg" aria-hidden="true" style={{ background: tone }}>
         {bg && <img src={bg} alt="" />}
         {!bg && display && <span class="reveal-ghost">{display.title}</span>}
       </div>

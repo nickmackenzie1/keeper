@@ -32,6 +32,9 @@ export interface Movie {
   collection_id: number | null; // TMDB collection = series
   collection_name: string | null;
   certification: string | null; // age rating, e.g. "PG", "14A"
+  poster_bg?: string | null; // colours picked from the poster (by the server)
+  poster_accent?: string | null;
+  palette_for?: string | null;
   updated_at: number;
   updated_by: string;
   deleted: boolean;
@@ -91,6 +94,7 @@ export interface TmdbHit {
   votes?: number | null;
   genres?: string | null;
   certification?: string | null;
+  palette?: { bg: string; accent: string } | null;
   collection_id?: number | null;
   collection_name?: string | null;
 }

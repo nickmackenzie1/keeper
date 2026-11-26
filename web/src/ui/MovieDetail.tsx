@@ -24,9 +24,13 @@ export function MovieDetail({ id }: { id: string }) {
     );
   }
   const sorted = copies.slice().sort((a, b) => FORMAT_RANK[b.format] - FORMAT_RANK[a.format]);
+  // The page takes on the poster's colours: a tone washing down from the top, and its accent for buttons.
+  const themed = movie.poster_accent
+    ? ({ "--accent": movie.poster_accent, "--on-accent": "#0a0a0a", "--tone": movie.poster_bg ?? "transparent" } as Record<string, string>)
+    : undefined;
 
   return (
-    <div class="screen">
+    <div class={`screen movie-page ${themed ? "themed" : ""}`} style={themed}>
       <header class="screen-head">
         <button class="btn ghost" onClick={() => history.back()}>‹ Back</button>
       </header>

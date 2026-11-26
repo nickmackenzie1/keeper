@@ -108,6 +108,9 @@ addColumn("movies", "collection_name", "TEXT");
 addColumn("movies", "enriched", "INTEGER NOT NULL DEFAULT 0");
 addColumn("copies", "created_at", "INTEGER");   // when the disc was added (for "biggest month")
 addColumn("hunts", "found_by", "TEXT");          // who found it (credit!)
+addColumn("movies", "poster_bg", "TEXT");         // colours picked from the poster
+addColumn("movies", "poster_accent", "TEXT");
+addColumn("movies", "palette_for", "TEXT");       // which poster those colours came from
 {
   // certification (G/PG/14A…) arrived later: re-enrich everything once to fill it.
   const cols = db.prepare("PRAGMA table_info(movies)").all() as { name: string }[];

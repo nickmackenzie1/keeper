@@ -4,6 +4,7 @@ import { db, nextSeq, currentSeq, getMeta } from "./db.js";
 import { config } from "./config.js";
 import { broadcastChange } from "./events.js";
 import { queueDigest } from "./push.js";
+import { colourMovies } from "./enrich.js";
 
 const base = {
   id: z.string().uuid(),
@@ -26,6 +27,9 @@ const MovieIn = z.object({
   collection_id: int,
   collection_name: str,
   certification: str,
+  poster_bg: str,
+  poster_accent: str,
+  palette_for: str,
 });
 
 const CopyIn = z.object({
@@ -60,7 +64,7 @@ const HuntIn = z.object({
 const TABLES = {
   movies: {
     schema: MovieIn,
-    columns: ["id", "tmdb_id", "title", "year", "poster_path", "overview", "runtime", "genres", "collection_id", "collection_name", "certification", "updated_at", "updated_by", "deleted"],
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "overview", "runtime", "genres", "collection_id", "collection_name", "certification", "poster_bg", "poster_accent", "palette_for", "updated_at", "updated_by", "deleted"],
     bools: ["deleted"],
   },
   copies: {
@@ -176,6 +180,7 @@ syncRouter.post("/sync", (req, res) => {
   if (applied.accepted > 0) {
     broadcastChange(device_id);
     queueDigest(device_id);
+    if (changes.movies.length) setTimeout(() => void colourMovies(), 500); // new/changed posters get their colours
   }
 
   const full = reason !== null;

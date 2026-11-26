@@ -8,7 +8,7 @@ import { syncRouter } from "./sync.js";
 import { lookupRouter, outbound } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
-import { enrichMovies, seriesRouter } from "./enrich.js";
+import { colourMovies, enrichMovies, seriesRouter } from "./enrich.js";
 import { shelfRouter } from "./shelf.js";
 
 // Docker on Synology often has no IPv6; trying IPv6 first makes outside requests hang.
@@ -108,5 +108,7 @@ setInterval(() => flushDigests().catch((e) => console.error("digest:", e)), 60_0
 // Fill in genres + series for new movies (and everything added before this existed).
 setTimeout(() => void enrichMovies(), 5_000);
 setInterval(() => void enrichMovies(), 2 * 60_000);
+setTimeout(() => void colourMovies(), 8_000);
+setInterval(() => void colourMovies(), 3 * 60_000);
 
 app.listen(config.port, () => console.log(`Keeper listening on :${config.port}`));

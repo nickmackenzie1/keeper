@@ -716,3 +716,11 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .reveal .btn.primary { background: var(--rv); color: #0a0a0a; border-color: var(--rv); }
 /* Tap anywhere to skip straight to the end */
 .reveal-skip *, .reveal-skip { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
+
+/* Movie pages take on their poster's colours */
+.movie-page.themed { background: linear-gradient(to bottom, var(--tone) 0, var(--tone) 220px, transparent 560px); min-height: 100dvh; }
+.movie-page.themed .screen-head { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.movie-page.themed h2 { color: var(--accent); }
+[data-skin="catalog"] .movie-page.themed, [data-skin="rewind"] .movie-page.themed { background: none; }
+[data-skin="catalog"] .movie-page.themed h2, [data-skin="rewind"] .movie-page.themed h2 { color: inherit; }
+[data-skin="marquee"] .btn.danger { color: #ff9aa9; }

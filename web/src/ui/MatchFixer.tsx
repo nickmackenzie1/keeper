@@ -58,6 +58,9 @@ export function FixMatch({ movie, onDone }: { movie: Movie; onDone: () => void }
         collection_id: d.collection_id ?? null,
         collection_name: d.collection_name ?? null,
         certification: d.certification ?? null,
+        poster_bg: d.palette?.bg ?? null,
+        poster_accent: d.palette?.accent ?? null,
+        palette_for: d.palette ? d.poster_path ?? null : null,
       });
       toast(`Matched to ${d.title}${d.year ? ` (${d.year})` : ""}`);
       onDone();

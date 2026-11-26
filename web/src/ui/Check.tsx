@@ -1,6 +1,8 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { copiesFor } from "../lib/db";
-import { searchHunts, searchLocal, verdictForBarcode, type Verdict } from "../lib/verdict";
+import { searchHunts, searchLocal, verdictForBarcode, verdictForCover, type Verdict } from "../lib/verdict";
+import { ApiError, coverScan } from "../lib/api";
+import { preparePhoto } from "../lib/photo";
 import { celebrate, primeAudio } from "../lib/celebrate";
 import { addHunt } from "../lib/db";
 import { Haul } from "./Haul";
@@ -8,7 +10,7 @@ import { ShelfScan } from "./ShelfScan";
 import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
-import { IconScan, IconSearch } from "./icons";
+import { IconCamera, IconScan, IconSearch } from "./icons";
 import { SyncPill } from "./SyncPill";
 
 const HEADLINE: Record<Verdict["kind"], string> = {
@@ -29,7 +31,7 @@ function summary(v: Verdict): string {
     case "owned":
       return `You own ${title} on ${owned}. Check the case to see if this one's better.`;
     default:
-      if (v.unknown) return "Couldn't identify this barcode. Try typing the title.";
+      if (v.unknown) return "Couldn't identify this disc. Try typing the title.";
       if (v.lookup?.candidates[0]) {
         const c = v.lookup.candidates[0];
         return `${c.title}${c.year ? ` (${c.year})` : ""}${v.scanned && v.scanned !== "other" ? ` · ${FORMAT_LABEL[v.scanned]}` : ""}`;
@@ -145,6 +147,30 @@ export function Check() {
   const [hunts, setHunts] = useState<Hunt[]>([]);
   const [haul, setHaul] = useState(false);
   const [shelf, setShelf] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
+
+  const onCover = async (file?: File) => {
+    if (!file) return;
+    setError(null);
+    setVerdict(null);
+    setQ("");
+    setBusy(true);
+    try {
+      const { b64 } = await preparePhoto(file, 1400);
+      const v = await verdictForCover(await coverScan(b64, true));
+      setVerdict(v);
+      if (v.hunt) celebrate();
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.kind === "offline"
+          ? "Cover photos need a connection. Try the barcode — that works offline for discs you own."
+          : e instanceof Error ? e.message : "Couldn't read that photo.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!q.trim()) return setResults(null);
@@ -197,14 +223,19 @@ export function Check() {
               }}
             />
           </label>
+          <button class="btn icon-btn" aria-label="Photo of the cover" onClick={() => { primeAudio(); coverInput.current?.click(); }}>
+            <IconCamera />
+          </button>
           <button class="btn primary icon-btn" aria-label="Scan a barcode" onClick={startScan}>
             <IconScan />
           </button>
+          <input ref={coverInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { void onCover((e.target as HTMLInputElement).files?.[0]); (e.target as HTMLInputElement).value = ""; }} />
         </div>
       </header>
 
       <div class="screen-body">
         {busy && <p class="muted center">Looking it up…</p>}
+        {error && !busy && <p class="notice">{error}</p>}
         {verdict && !busy && <VerdictCard v={verdict} onNext={next} />}
 
         {!verdict && !busy && results && hunts.map((h) => (

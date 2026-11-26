@@ -27,6 +27,20 @@ List every disc whose title you can read, left to right, top to bottom. For each
 Skip anything you can't read at all. Don't invent titles.
 Reply with ONLY a JSON array, no other text.`;
 
+const COVER_PROMPT = `This photo shows one DVD, Blu-ray or 4K disc case (front cover, back or spine).
+
+Identify the movie or show. Reply with ONLY a JSON array containing one object with:
+- "title": the title as printed (no format words like "Blu-ray")
+- "year": release year if printed or you are confident, else null
+- "format": "dvd", "bluray", "uhd" (4K) or "unknown" — from the case logo/colour
+- "label": notable distributor/label (Criterion, Arrow, Scream Factory…), else null
+- "edition": e.g. "steelbook", "special edition", "box set", else null
+- "collector": true if collectors seek this exact release, else false
+- "collector_reason": a few words why, else null
+- "confidence": "high", "medium" or "low"
+
+If you can't identify it, reply with [].`;
+
 type Spine = {
   title: string;
   year: number | null;
@@ -38,7 +52,7 @@ type Spine = {
   confidence: "high" | "medium" | "low";
 };
 
-async function readSpines(imageB64: string, mediaType: string): Promise<Spine[]> {
+async function readSpines(imageB64: string, mediaType: string, prompt = PROMPT): Promise<Spine[]> {
   const r = await fetch(`${config.anthropicBase}/v1/messages`, {
     method: "POST",
     headers: {
@@ -54,7 +68,7 @@ async function readSpines(imageB64: string, mediaType: string): Promise<Spine[]>
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: imageB64 } },
-            { type: "text", text: PROMPT },
+            { type: "text", text: prompt },
           ],
         },
       ],
@@ -121,7 +135,9 @@ shelfRouter.post("/shelf", async (req, res, next) => {
     }
     db.prepare("INSERT INTO shelf_usage(day, count) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET count = count + 1").run(day);
 
-    const spines = await readSpines(image, String(req.body?.media_type ?? "image/jpeg"));
+    // mode "cover": one case photographed up close (identify a disc without a barcode).
+    const cover = req.body?.mode === "cover";
+    const spines = await readSpines(image, String(req.body?.media_type ?? "image/jpeg"), cover ? COVER_PROMPT : PROMPT);
 
     const results = await pool(spines.slice(0, 60), 5, async (s) => {
       let match = null;
@@ -132,7 +148,7 @@ shelfRouter.post("/shelf", async (req, res, next) => {
         if (hit) {
           const d = await movieDetails(hit.tmdb_id).catch(() => null);
           match = { ...hit, genres: d?.genres ?? null, collection_id: d?.collection_id ?? null, collection_name: d?.collection_name ?? null };
-          rarity = sight(hit.tmdb_id, hit.title, "shelf");
+          if (req.body?.store !== false) rarity = sight(hit.tmdb_id, hit.title, "shelf");
         }
       } catch (e: any) {
         if (e?.status === 503) throw e;

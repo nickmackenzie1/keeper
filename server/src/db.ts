@@ -107,6 +107,14 @@ addColumn("movies", "collection_id", "INTEGER"); // TMDB collection = series
 addColumn("movies", "collection_name", "TEXT");
 addColumn("movies", "enriched", "INTEGER NOT NULL DEFAULT 0");
 addColumn("copies", "created_at", "INTEGER");   // when the disc was added (for "biggest month")
+{
+  // certification (G/PG/14A…) arrived later: re-enrich everything once to fill it.
+  const cols = db.prepare("PRAGMA table_info(movies)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "certification")) {
+    db.exec("ALTER TABLE movies ADD COLUMN certification TEXT");
+    db.exec("UPDATE movies SET enriched = 0");
+  }
+}
 db.exec("UPDATE copies SET created_at = updated_at WHERE created_at IS NULL");
 
 export function nextSeq(): number {

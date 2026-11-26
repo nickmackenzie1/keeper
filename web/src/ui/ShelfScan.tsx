@@ -5,6 +5,7 @@ import { addHunt, allCopies, allMovies, copiesFor, movieByTmdb } from "../lib/db
 import { judge, matchHunt, normalizeTitle, type VerdictKind } from "../lib/verdict";
 import { FORMAT_LABEL, type Format, type Hunt, type Movie, type ShelfSpine } from "../lib/types";
 import { Poster } from "./Poster";
+import { preparePhoto } from "../lib/photo";
 
 type Row = {
   spine: ShelfSpine;
@@ -15,19 +16,6 @@ type Row = {
   tags: { label: string; tone: string }[];
   score: number;
 };
-
-/** Shrink the photo before upload: plenty for reading spines, much faster on cellular. */
-async function prepare(file: File): Promise<{ b64: string; preview: string }> {
-  const bmp = await createImageBitmap(file);
-  const max = 2000;
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bmp.width * scale);
-  canvas.height = Math.round(bmp.height * scale);
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  const preview = canvas.toDataURL("image/jpeg", 0.85);
-  return { b64: preview.split(",")[1], preview };
-}
 
 async function evaluate(spines: ShelfSpine[]): Promise<Row[]> {
   const movies = await allMovies();
@@ -102,7 +90,7 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
     setRows(null);
     setBusy(true);
     try {
-      const { b64, preview } = await prepare(file);
+      const { b64, preview } = await preparePhoto(file);
       setPreview(preview);
       const spines = await shelfScan(b64);
       const r = await evaluate(spines);

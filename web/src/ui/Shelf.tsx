@@ -76,6 +76,10 @@ export function Shelf() {
             {isGrid ? <IconList /> : <IconGrid />}
           </button>
         </div>
+        <a class="movie-night" href="#/tonight">
+          <b>Movie night</b>
+          <span class="muted">Can't decide? Let Keeper pick from your shelf</span>
+        </a>
         <div class="chips" role="tablist" aria-label="Filter by format">
           {FILTERS.map(([f, label]) => (
             <button key={f} role="tab" aria-selected={filter === f} class={`filter ${filter === f ? "on" : ""} ${f === "upgrade" ? "accent" : ""}`} onClick={() => setFilter(f)}>

@@ -443,3 +443,15 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .tag-series { background: var(--chip-bd-bg); color: var(--chip-bd-fg); }
 .tag-rated { background: var(--surface-2); color: var(--text); }
 .rare-note { align-self: flex-start; margin-top: 4px; font-size: 13px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #0f766e; color: #ccfbf1; }
+
+/* ============ Movie night (v0.4) ============ */
+.movie-night {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; text-decoration: none;
+  border-radius: var(--radius-sm); background: var(--surface); border: var(--border-w, 1px) solid var(--line);
+}
+.movie-night b { font-family: var(--font-head); text-transform: var(--head-transform, none); font-weight: var(--head-weight); font-size: 17px; }
+.seg.seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tonight-stage { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.tonight-poster { width: 58%; max-width: 260px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25); }
+.tonight-stage.landed .tonight-poster { animation: pop 0.4s ease-out; }
+.tonight-stage h2 { font-size: 26px; }

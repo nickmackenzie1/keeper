@@ -23,13 +23,15 @@ export async function enrichMovies(limit = 40) {
       try {
         const d = await movieDetails(m.tmdb_id);
         const changed =
-          d.genres !== m.genres || d.collection_id !== m.collection_id || (d.runtime && !m.runtime) || (d.poster_path && !m.poster_path);
+          d.genres !== m.genres || d.collection_id !== m.collection_id || d.certification !== m.certification ||
+          (d.runtime && !m.runtime) || (d.poster_path && !m.poster_path);
         if (changed) {
           upsertRow("movies", {
             ...m,
             genres: d.genres,
             collection_id: d.collection_id,
             collection_name: d.collection_name,
+            certification: d.certification,
             runtime: m.runtime ?? d.runtime,
             poster_path: m.poster_path ?? d.poster_path,
             updated_at: Math.max(Date.now(), m.updated_at + 1),

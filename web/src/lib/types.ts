@@ -31,6 +31,7 @@ export interface Movie {
   genres: string | null; // "Horror, Science Fiction"
   collection_id: number | null; // TMDB collection = series
   collection_name: string | null;
+  certification: string | null; // age rating, e.g. "PG", "14A"
   updated_at: number;
   updated_by: string;
   deleted: boolean;
@@ -88,6 +89,7 @@ export interface TmdbHit {
   rating?: number | null;
   votes?: number | null;
   genres?: string | null;
+  certification?: string | null;
   collection_id?: number | null;
   collection_name?: string | null;
 }

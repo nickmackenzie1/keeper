@@ -11,6 +11,7 @@ import { Setup } from "./Setup";
 import { Shelf } from "./Shelf";
 import { Hunt } from "./Hunt";
 import { Stats } from "./Stats";
+import { Tonight } from "./Tonight";
 import { IconScan, IconSettings, IconShelf, IconStar, IconTarget } from "./icons";
 import { useRoute } from "./util";
 
@@ -60,9 +61,10 @@ export function App() {
   else if (tab === "settings") screen = <Settings />;
   else if (tab === "hunt") screen = <Hunt />;
   else if (tab === "stats") screen = <Stats />;
+  else if (tab === "tonight") screen = <Tonight />;
   else screen = <Check />;
 
-  const active = tab === "movie" || tab === "add" ? "shelf" : tab;
+  const active = tab === "movie" || tab === "add" || tab === "tonight" ? "shelf" : tab;
   return (
     <div class="app">
       <main>{screen}</main>

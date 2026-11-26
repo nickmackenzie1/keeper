@@ -35,6 +35,7 @@ export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy
       genres: d.genres ?? null,
       collection_id: d.collection_id ?? null,
       collection_name: d.collection_name ?? null,
+      certification: d.certification ?? null,
       deleted: false,
     });
   }

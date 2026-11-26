@@ -57,6 +57,13 @@ export const lookupBarcode = (upc: string, store = false) =>
 export const shelfScan = (imageB64: string) =>
   api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg" }) }).then((r) => r.spines);
 
+/** One case photographed up close → what disc is it? `store`: count it as a store sighting. */
+export const coverScan = (imageB64: string, store: boolean) =>
+  api<{ spines: ShelfSpine[] }>("/shelf", {
+    method: "POST",
+    body: JSON.stringify({ image: imageB64, media_type: "image/jpeg", mode: "cover", store }),
+  }).then((r) => r.spines[0] ?? null);
+
 export const listDevices = () =>
   api<{ devices: { device_id: string; name: string | null; last_sync_at: number; days_since_sync: number }[] }>(
     "/devices",

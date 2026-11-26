@@ -1,11 +1,12 @@
-import { useEffect, useState } from "preact/hooks";
-import { ApiError, lookupBarcode, searchTmdb, tmdbDetails } from "../lib/api";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { ApiError, coverScan, lookupBarcode, searchTmdb, tmdbDetails } from "../lib/api";
+import { preparePhoto } from "../lib/photo";
 import { allCopies, copiesFor, getMovie, movieByTmdb } from "../lib/db";
 import { addDisc } from "../lib/collection";
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, type Format, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
-import { IconScan, IconSearch } from "./icons";
+import { IconCamera, IconScan, IconSearch } from "./icons";
 import { go, useData } from "./util";
 
 type Pick = { tmdb?: TmdbHit; movie?: Movie; manual?: { title: string; year: number | null } };
@@ -20,6 +21,7 @@ export function Add({ query }: { query: URLSearchParams }) {
   const [pick, setPick] = useState<Pick | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
 
   // Arriving from the Check screen or a movie page with things already known.
   useEffect(() => {
@@ -84,6 +86,29 @@ export function Add({ query }: { query: URLSearchParams }) {
     }
   }
 
+  async function runCover(file?: File) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    setBarcode(null);
+    try {
+      const { b64 } = await preparePhoto(file, 1400);
+      const spine = await coverScan(b64, false);
+      if (spine?.format && spine.format !== "unknown") setFormat(spine.format);
+      setProductTitle(spine ? [spine.title, spine.label, spine.edition].filter(Boolean).join(" · ") : null);
+      if (spine?.match) setResults([spine.match]);
+      else {
+        setResults([]);
+        if (spine?.title) setQ(spine.title);
+        setError(spine ? `Read “${spine.title}” but couldn't find it on TMDB — try searching.` : "Couldn't identify that cover. Try the barcode or search by title.");
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const choose = async (hit: TmdbHit) => {
     const local = await movieByTmdb(hit.tmdb_id);
     setPick(local ? { movie: local } : { tmdb: hit });
@@ -109,13 +134,18 @@ export function Add({ query }: { query: URLSearchParams }) {
             <IconSearch />
             <input type="search" placeholder="Search movie title" aria-label="Search movie title" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
           </label>
+          <button type="button" class="btn icon-btn" aria-label="Photo of the cover" onClick={() => coverInput.current?.click()}>
+            <IconCamera />
+          </button>
           <button type="button" class="btn primary icon-btn" aria-label="Scan a barcode" onClick={() => setScanning(true)}>
             <IconScan />
           </button>
+          <input ref={coverInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { void runCover((e.target as HTMLInputElement).files?.[0]); (e.target as HTMLInputElement).value = ""; }} />
         </form>
       </header>
 
       <div class="screen-body">
+        {!barcode && productTitle && <p class="muted">From the cover: “{productTitle}”{format ? ` · ${FORMAT_LABEL[format]}` : ""}</p>}
         {barcode && (
           <p class="muted">
             Barcode {barcode}

@@ -25,6 +25,7 @@ const MovieIn = z.object({
   genres: str,
   collection_id: int,
   collection_name: str,
+  certification: str,
 });
 
 const CopyIn = z.object({
@@ -58,7 +59,7 @@ const HuntIn = z.object({
 const TABLES = {
   movies: {
     schema: MovieIn,
-    columns: ["id", "tmdb_id", "title", "year", "poster_path", "overview", "runtime", "genres", "collection_id", "collection_name", "updated_at", "updated_by", "deleted"],
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "overview", "runtime", "genres", "collection_id", "collection_name", "certification", "updated_at", "updated_by", "deleted"],
     bools: ["deleted"],
   },
   copies: {

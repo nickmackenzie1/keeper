@@ -31,8 +31,12 @@ const toHit = (m: any): MovieHit => ({
 
 /** Full details incl. genres and series (TMDB "collection"). */
 export async function movieDetails(id: number) {
-  const m = await tmdb(`/movie/${id}`);
+  const m = await tmdb(`/movie/${id}`, { append_to_response: "release_dates" });
+  // Age rating: prefer Canada, then US.
+  const rd = (m.release_dates?.results ?? []) as { iso_3166_1: string; release_dates: { certification: string }[] }[];
+  const cert = (cc: string) => rd.find((r) => r.iso_3166_1 === cc)?.release_dates.map((d) => d.certification).find((c) => c) ?? null;
   return {
+    certification: cert("CA") ?? cert("US"),
     ...toHit(m),
     runtime: (m.runtime as number) || null,
     genres: ((m.genres ?? []) as { name: string }[]).map((g) => g.name).join(", ") || null,

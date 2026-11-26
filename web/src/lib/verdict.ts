@@ -1,6 +1,6 @@
 import { allHunts, allMovies, copiesByBarcode, copiesFor, getMovie, movieByTmdb } from "./db";
 import { ApiError, lookupBarcode } from "./api";
-import { FORMAT_RANK, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity } from "./types";
+import { FORMAT_RANK, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity, type ShelfSpine } from "./types";
 
 export type VerdictKind = "not_owned" | "upgrade" | "have" | "owned";
 
@@ -108,5 +108,21 @@ export async function verdictForBarcode(code: string, opts: { store?: boolean } 
   if (v.kind === "not_owned" || v.kind === "upgrade") {
     v.hunt = await matchHunt(lookup.candidates.slice(0, 3).map((c) => c.tmdb_id), lookup.candidates[0]?.title);
   }
+  return v;
+}
+
+/** Cover photo → verdict, same shape as a barcode check. */
+export async function verdictForCover(spine: ShelfSpine | null): Promise<Verdict> {
+  if (!spine) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
+  const fmt = spine.format === "unknown" ? null : (spine.format as Format);
+  let movie: Movie | null = spine.match ? ((await movieByTmdb(spine.match.tmdb_id)) ?? null) : null;
+  if (!movie) {
+    const want = normalizeTitle(spine.match?.title ?? spine.title);
+    movie = (await allMovies()).find((m) => normalizeTitle(m.title) === want) ?? null;
+  }
+  const copies = movie ? await copiesFor(movie.id) : [];
+  const lookup: BarcodeLookup = { barcode: "", product_title: spine.title, format: fmt, candidates: spine.match ? [spine.match] : [] };
+  const v: Verdict = { ...judge(movie, copies, fmt), lookup, unknown: !spine.match && !movie, rarity: spine.rarity };
+  if (v.kind === "not_owned" || v.kind === "upgrade") v.hunt = await matchHunt(spine.match ? [spine.match.tmdb_id] : [], spine.match?.title ?? spine.title);
   return v;
 }

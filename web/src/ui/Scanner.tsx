@@ -1,13 +1,10 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
-import { BarcodeFormat, DecodeHintType } from "@zxing/library";
-import { IconClose } from "./icons";
+import type { IScannerControls } from "@zxing/browser";
+import { IconClose, IconTorch } from "./icons";
 
-const hints = new Map<DecodeHintType, unknown>([
-  [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.EAN_8]],
-  [DecodeHintType.TRY_HARDER, true],
-]);
+/** The barcode library is big, so it loads on first use (and is warmed up in the background after launch). */
+export const loadZxing = () => Promise.all([import("@zxing/browser"), import("@zxing/library")]);
 
 type Props = {
   onCode: (code: string) => void;
@@ -25,6 +22,8 @@ export function Scanner({ onCode, onClose, continuous = false, status, hint }: P
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState("");
   const [flash, setFlash] = useState(false);
+  const [torch, setTorch] = useState<null | boolean>(null); // null = not supported
+  const track = useRef<MediaStreamTrack | null>(null);
   const cb = useRef(onCode);
   cb.current = onCode;
 
@@ -33,7 +32,6 @@ export function Scanner({ onCode, onClose, continuous = false, status, hint }: P
     let done = false;
     const seen = new Map<string, number>(); // code → last time accepted
     let lastAccepted = 0;
-    const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 100 });
 
     const accept = (code: string) => {
       const now = Date.now();
@@ -52,19 +50,33 @@ export function Scanner({ onCode, onClose, continuous = false, status, hint }: P
       }
     };
 
-    reader
-      .decodeFromConstraints(
+    loadZxing()
+      .then(([{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }]) => {
+        if (done) return Promise.reject(Object.assign(new Error("closed"), { name: "Closed" }));
+        const hints = new Map<unknown, unknown>([
+          [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.EAN_8]],
+          [DecodeHintType.TRY_HARDER, true],
+        ]);
+        const reader = new BrowserMultiFormatReader(hints as never, { delayBetweenScanAttempts: 100 });
+        return reader.decodeFromConstraints(
         { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
         video.current!,
         (result) => {
           if (result) accept(result.getText());
         },
-      )
+      );
+      })
       .then((c) => {
         controls = c;
-        if (done) c.stop();
+        if (done) return c.stop();
+        // Flashlight for dim aisles, where the phone allows it.
+        const t = (video.current?.srcObject as MediaStream | null)?.getVideoTracks()[0] ?? null;
+        track.current = t;
+        const caps = (t?.getCapabilities?.() ?? {}) as { torch?: boolean };
+        if (caps.torch) setTorch(false);
       })
       .catch((e: Error) => {
+        if (e.name === "Closed") return;
         setError(
           e.name === "NotAllowedError"
             ? "Camera access is off. Allow it for Keeper in iPhone Settings, or type the barcode below."
@@ -80,7 +92,24 @@ export function Scanner({ onCode, onClose, continuous = false, status, hint }: P
   return (
     <div class={`scanner ${flash ? "flash" : ""}`} role="dialog" aria-label="Scan a barcode">
       <video ref={video} playsInline muted autoPlay />
-      <div class="scanner-frame" aria-hidden="true" />
+      <div class="scanner-frame" aria-hidden="true"><span class="scan-line" /></div>
+      {torch !== null && (
+        <button
+          class={`scanner-torch icon-btn ${torch ? "on" : ""}`}
+          aria-label={torch ? "Turn flashlight off" : "Turn flashlight on"}
+          aria-pressed={torch}
+          onClick={async () => {
+            try {
+              await track.current?.applyConstraints({ advanced: [{ torch: !torch } as MediaTrackConstraintSet] });
+              setTorch(!torch);
+            } catch {
+              setTorch(null);
+            }
+          }}
+        >
+          <IconTorch />
+        </button>
+      )}
       {continuous ? (
         <button class="scanner-done btn primary" onClick={onClose}>Done</button>
       ) : (

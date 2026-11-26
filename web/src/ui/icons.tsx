@@ -45,3 +45,6 @@ export const IconStack = () => (
 export const IconShelfPhoto = () => (
   <svg {...base}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9v6M10 9v6M13 8v7M16 10v5" /></svg>
 );
+export const IconTorch = () => (
+  <svg {...base}><path d="M8 3h8l-1 6H9zM9 9h6v4l-1 8h-4l-1-8z" /><path d="M12 13v3" /></svg>
+);

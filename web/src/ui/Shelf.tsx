@@ -1,3 +1,4 @@
+import { Skeleton } from "./Skeleton";
 import { useMemo, useState } from "preact/hooks";
 import { allCopies, allMovies } from "../lib/db";
 import { normalizeTitle } from "../lib/verdict";
@@ -56,6 +57,8 @@ export function Shelf() {
     const best = cs.reduce<Format | null>((a, c) => (!a || FORMAT_RANK[c.format] > FORMAT_RANK[a] ? c.format : a), null);
     return best ? FORMAT_SHORT[best] : undefined;
   };
+
+  if (!data) return <Skeleton rows={7} />;
 
   return (
     <div class="screen">

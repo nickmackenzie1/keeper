@@ -151,6 +151,7 @@ export async function addHunt(hit: { tmdb_id: number | null; title: string; year
     poster_path: hit.poster_path,
     notes,
     found: false,
+    found_by: null,
     added_by: (await getMeta("deviceName")) ?? null,
     deleted: false,
   });
@@ -163,7 +164,7 @@ export async function markHuntsFound(tmdbId: number | null, title: string) {
     if (h.found) continue;
     if ((tmdbId && h.tmdb_id === tmdbId) || (!h.tmdb_id && norm(h.title) === norm(title))) {
       const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = h;
-      await saveHunt({ ...rest, found: true });
+      await saveHunt({ ...rest, found: true, found_by: (await getMeta("deviceName")) ?? null });
     }
   }
 }
@@ -200,4 +201,9 @@ export function onChanged(fn: (src: ChangeSource) => void) {
     listeners.delete(fn);
     channel?.removeEventListener("message", handler);
   };
+}
+
+/** The name this phone uses (shown on badges and in notifications). */
+export async function myName(): Promise<string> {
+  return (await getMeta("deviceName")) || "Me";
 }

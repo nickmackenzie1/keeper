@@ -4,7 +4,9 @@ import { searchHunts, searchLocal, verdictForBarcode, verdictForCover, type Verd
 import { ApiError, coverScan } from "../lib/api";
 import { preparePhoto } from "../lib/photo";
 import { celebrate, primeAudio } from "../lib/celebrate";
-import { addHunt } from "../lib/db";
+import { addHunt, allHunts } from "../lib/db";
+import { Person, greeting, useMe } from "./Person";
+import { useData } from "./util";
 import { Haul } from "./Haul";
 import { ShelfScan } from "./ShelfScan";
 import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
@@ -57,8 +59,12 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
     <section class={`verdict verdict-${v.unknown ? "unknown" : v.kind}`} aria-live="polite">
       {v.hunt && (
         <div class="hunt-banner">
-          <b>On your hunt list!</b>
-          <span>{v.hunt.added_by ? `${v.hunt.added_by} has been looking for this` : "You've been looking for this"}{v.hunt.notes ? ` · ${v.hunt.notes}` : ""}</span>
+          <b>On the hunt list!</b>
+          <span class="row hunt-meta">
+            <Person name={v.hunt.added_by} size={20} />
+            {v.hunt.added_by ? `${v.hunt.added_by} has been looking for this` : "Someone's been looking for this"}
+            {v.hunt.notes ? ` · ${v.hunt.notes}` : ""}
+          </span>
         </div>
       )}
       <div class="stack">
@@ -142,6 +148,28 @@ function ResultRow({ m }: { m: Movie }) {
         {!best && <span class="chip">—</span>}
       </a>
     </li>
+  );
+}
+
+function Hello() {
+  const me = useMe();
+  const hunts = useData(allHunts);
+  if (!me) return null;
+  const open = (hunts ?? []).filter((h) => !h.found);
+  const mine = open.filter((h) => h.added_by === me).length;
+  const others = open.length - mine;
+  return (
+    <div class="hello">
+      <Person name={me} size={34} />
+      <div class="stack">
+        <b>{greeting()}, {me}</b>
+        <span class="muted">
+          {open.length === 0
+            ? "Nothing on the hunt list yet"
+            : [mine ? `${mine} on your hunt list` : null, others ? `${others} on the family's` : null].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -268,6 +296,7 @@ export function Check() {
 
         {!verdict && !busy && !results && (
           <>
+            <Hello />
             <button class="hero-scan" onClick={startScan}>
               <IconScan />
               <span class="hero-scan-title">Scan a disc</span>

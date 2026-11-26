@@ -64,6 +64,7 @@ export interface Hunt {
   poster_path: string | null;
   notes: string | null;
   found: boolean;
+  found_by: string | null;
   added_by: string | null;
   updated_at: number;
   updated_by: string;

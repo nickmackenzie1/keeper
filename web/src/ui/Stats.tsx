@@ -1,3 +1,4 @@
+import { Skeleton } from "./Skeleton";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { fetchSeries } from "../lib/api";
 import { computeAchievements, loadCollection, type CollectionData } from "../lib/achievements";
@@ -6,6 +7,7 @@ import { addHunt, onChanged, setMeta } from "../lib/db";
 import { FORMAT_LABEL, FORMAT_RANK, type Format, type Series } from "../lib/types";
 import { Poster } from "./Poster";
 import { SyncPill } from "./SyncPill";
+import { Person } from "./Person";
 
 function Bars({ rows, max }: { rows: { label: string; value: number; key?: string }[]; max?: number }) {
   const top = max ?? Math.max(1, ...rows.map((r) => r.value));
@@ -87,7 +89,25 @@ export function Stats() {
     const biggest = [...monthMap.entries()].sort((a, b) => b[1] - a[1])[0];
     const biggestLabel = biggest ? `${MONTHS[Number(biggest[0].slice(5))]} ${biggest[0].slice(0, 4)} · ${biggest[1]} discs` : null;
 
-    return { owned, formats, hdPct, hd, total: best.size, wantUpgrade, decades, genres, missingGenres, months, biggestLabel };
+    // Who's adding: discs added (all time + this month) and hunts found, per person.
+    const people = new Map<string, { discs: number; month: number; found: number }>();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const bump = (name: string | null) => {
+      if (!name) return null;
+      if (!people.has(name)) people.set(name, { discs: 0, month: 0, found: 0 });
+      return people.get(name)!;
+    };
+    for (const c of data.copies) {
+      const p = bump(c.added_by);
+      if (p) {
+        p.discs++;
+        if ((c.created_at ?? 0) >= monthStart) p.month++;
+      }
+    }
+    for (const h of data.hunts) if (h.found) { const p = bump(h.found_by); if (p) p.found++; }
+    const team = [...people.entries()].sort((a, b) => b[1].discs - a[1].discs);
+
+    return { team, owned, formats, hdPct, hd, total: best.size, wantUpgrade, decades, genres, missingGenres, months, biggestLabel };
   }, [data]);
 
   const achievements = useMemo(() => (data ? computeAchievements(data) : []), [data]);
@@ -95,7 +115,7 @@ export function Stats() {
   const gaps: Series[] = (data?.series ?? []).filter((x) => x.owned < x.total);
   const huntIds = new Set((data?.hunts ?? []).filter((h) => !h.found).map((h) => h.tmdb_id));
 
-  if (!data || !s) return <div class="screen" />;
+  if (!data || !s) return <Skeleton />;
 
   return (
     <div class="screen">
@@ -111,6 +131,25 @@ export function Stats() {
           <div class="tile"><span class="tile-num">{data.copies.length}</span><span class="muted">discs</span></div>
           <div class="tile"><span class="tile-num">{unlocked}</span><span class="muted">badges</span></div>
         </div>
+
+        {s.team.length > 0 && (
+          <section class="card">
+            <h3>Who's adding</h3>
+            <ul class="team">
+              {s.team.map(([name, t]) => (
+                <li key={name}>
+                  <Person name={name} size={32} />
+                  <span class="stack grow">
+                    <b>{name}</b>
+                    <span class="muted">
+                      {[`${t.discs} disc${t.discs === 1 ? "" : "s"}`, t.month ? `${t.month} this month` : null, t.found ? `${t.found} hunt${t.found === 1 ? "" : "s"} found` : null].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section class="card">
           <h3>Upgrade progress</h3>

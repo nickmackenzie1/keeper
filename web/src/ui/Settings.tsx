@@ -1,3 +1,4 @@
+import { Skeleton } from "./Skeleton";
 import { useEffect, useState } from "preact/hooks";
 import { listDevices } from "../lib/api";
 import { deviceId, getMeta, pendingCount, setMeta } from "../lib/db";
@@ -24,7 +25,7 @@ export function Settings() {
     currentSubscription().then((s) => setPushOn(!!s)).catch(() => setPushOn(false));
   }, []);
 
-  if (!meta) return <div class="screen" />;
+  if (!meta) return <Skeleton />;
 
   return (
     <div class="screen">

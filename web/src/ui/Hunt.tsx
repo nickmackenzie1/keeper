@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
 import { ApiError, searchTmdb } from "../lib/api";
 import { toast } from "../lib/celebrate";
-import { addHunt, allHunts, saveHunt } from "../lib/db";
+import { addHunt, allHunts, myName, saveHunt } from "../lib/db";
+import { Person, useMe } from "./Person";
 import type { Hunt as HuntRow, TmdbHit } from "../lib/types";
 import { Poster } from "./Poster";
 import { IconSearch, IconTrash } from "./icons";
@@ -18,8 +19,12 @@ export function Hunt() {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [showFound, setShowFound] = useState(false);
+  const [who, setWho] = useState<string>("everyone");
+  const me = useMe();
 
-  const open = (hunts ?? []).filter((h) => !h.found).sort((a, b) => b.updated_at - a.updated_at);
+  const people = [...new Set((hunts ?? []).filter((h) => !h.found).map((h) => h.added_by).filter(Boolean) as string[])];
+  const mine = (h: HuntRow) => (who === "everyone" ? true : who === "mine" ? h.added_by === me : h.added_by === who);
+  const open = (hunts ?? []).filter((h) => !h.found && mine(h)).sort((a, b) => b.updated_at - a.updated_at);
   const found = (hunts ?? []).filter((h) => h.found).sort((a, b) => b.updated_at - a.updated_at);
 
   const search = async (e: Event) => {
@@ -86,7 +91,24 @@ export function Hunt() {
           </>
         )}
 
-        {!results && hunts && open.length === 0 && (
+        {!results && people.length > 1 && (
+          <div class="chips" role="group" aria-label="Whose hunts">
+            <button class={`filter ${who === "everyone" ? "on" : ""}`} aria-pressed={who === "everyone"} onClick={() => setWho("everyone")}>Everyone</button>
+            {me && people.includes(me) && (
+              <button class={`filter ${who === "mine" ? "on" : ""}`} aria-pressed={who === "mine"} onClick={() => setWho("mine")}>Mine</button>
+            )}
+            {people.filter((p) => p !== me).map((p) => (
+              <button key={p} class={`filter ${who === p ? "on" : ""}`} aria-pressed={who === p} onClick={() => setWho(p)}>
+                <Person name={p} size={18} /> {p}'s
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!results && hunts && open.length === 0 && who !== "everyone" && (
+          <p class="muted center">Nothing here — switch to Everyone.</p>
+        )}
+        {!results && hunts && open.length === 0 && who === "everyone" && (
           <div class="empty">
             <p><b>Nothing on the hunt list yet.</b></p>
             <p class="muted">Add movies you're looking for. When either of you scans one in a store, Keeper celebrates.</p>
@@ -100,13 +122,14 @@ export function Hunt() {
                 <Poster movie={h} size="w342" />
                 <div class="stack">
                   <b>{h.title}</b>
-                  <span class="muted">
-                    {[h.year, h.added_by ? `added by ${h.added_by}` : null].filter(Boolean).join(" · ")}
+                  <span class="muted row hunt-meta">
+                    <Person name={h.added_by} size={18} />
+                    {[h.year, h.added_by].filter(Boolean).join(" · ")}
                   </span>
                   {h.notes && <span class="muted">{h.notes}</span>}
                 </div>
                 <div class="row hunt-actions">
-                  <button class="btn small grow" onClick={() => void saveHunt({ ...strip(h), found: true })}>Found it</button>
+                  <button class="btn small grow" onClick={async () => void saveHunt({ ...strip(h), found: true, found_by: await myName() })}>Found it</button>
                   <button class="btn small icon-btn" aria-label={`Remove ${h.title}`} onClick={() => void saveHunt({ ...strip(h), deleted: true })}>
                     <IconTrash />
                   </button>
@@ -128,9 +151,12 @@ export function Hunt() {
                     <Poster movie={h} size="w185" class="thumb" />
                     <span class="stack grow">
                       <b>{h.title}</b>
-                      <span class="muted">Found {timeAgo(h.updated_at)}</span>
+                      <span class="muted row hunt-meta">
+                        {h.found_by && <Person name={h.found_by} size={18} />}
+                        Found {h.found_by ? `by ${h.found_by} ` : ""}{timeAgo(h.updated_at)}
+                      </span>
                     </span>
-                    <button class="btn small" onClick={() => void saveHunt({ ...strip(h), found: false })}>Undo</button>
+                    <button class="btn small" onClick={() => void saveHunt({ ...strip(h), found: false, found_by: null })}>Undo</button>
                   </li>
                 ))}
               </ul>

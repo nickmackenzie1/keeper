@@ -513,3 +513,62 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .tonight-fan .fan-1 { transform: translateX(calc(-50% - 46px)) translateY(10px) rotate(-9deg); z-index: 2; }
 .tonight-fan .fan-2 { transform: translateX(calc(-50% + 46px)) translateY(10px) rotate(9deg); z-index: 1; }
 .tonight-fan { width: 260px; }
+
+/* ============ Personal (v0.6) ============ */
+.person { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.person-badge {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border-radius: 50%; color: #fff; font-weight: 700; font-family: var(--font); line-height: 1;
+}
+.hunt-meta { gap: 6px; flex-wrap: wrap; }
+.hello { display: flex; align-items: center; gap: 12px; padding: 2px 2px 4px; }
+.hello b { font-family: var(--font-head); font-weight: var(--head-weight); text-transform: var(--head-transform, none); font-size: 19px; }
+.team { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.team li { display: flex; align-items: center; gap: 12px; }
+.filter .person { margin-right: 2px; }
+
+/* ============ Polish (v0.6) ============ */
+
+/* Screens ease in; results pop */
+.route > .screen { animation: screen-in 0.18s ease-out; }
+@keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.verdict { animation: pop 0.28s ease-out; }
+
+/* Everything you can press responds */
+.btn, .list-row, .start-tile, .hero-scan, .filter, .seg button, .skin-swatch, .tabbar a, .movie-night, .haul-start, .poster-grid a {
+  transition: transform 0.12s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+.btn:active, .start-tile:active, .hero-scan:active, .filter:active, .seg button:active, .skin-swatch:active, .movie-night:active, .poster-grid a:active { transform: scale(0.97); }
+.list-row:active { background: var(--surface-2); }
+.tabbar a:active { transform: scale(0.92); }
+.btn:disabled:active { transform: none; }
+
+/* Scanner: a moving line so it feels alive, plus a flashlight button */
+.scanner-frame { overflow: hidden; }
+.scan-line {
+  position: absolute; left: 8%; right: 8%; height: 2px; top: 50%;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent);
+  animation: scan 1.6s ease-in-out infinite alternate;
+}
+@keyframes scan { from { top: 14%; } to { top: 86%; } }
+.scanner-torch {
+  position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 12px;
+  background: rgba(0, 0, 0, 0.55); color: #fff; border: 0; border-radius: 24px;
+}
+.scanner-torch.on { background: #fde68a; color: #111; }
+.scanner.flash .scanner-frame { border-color: #22c55e; }
+
+/* Loading placeholders */
+.sk { display: block; background: var(--surface-2); border-radius: 8px; animation: shimmer 1.2s ease-in-out infinite alternate; }
+.sk-title { width: 45%; height: 30px; }
+.sk-bar { width: 100%; height: 48px; border-radius: var(--radius-sm); }
+.sk-row { display: flex; gap: 12px; align-items: center; }
+.sk-thumb { width: 40px; height: 60px; border-radius: 5px; flex-shrink: 0; }
+.sk-line { height: 14px; width: 70%; }
+.sk-line.short { width: 40%; margin-top: 6px; }
+@keyframes shimmer { from { opacity: 0.55; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  .scan-line { top: 50%; }
+}

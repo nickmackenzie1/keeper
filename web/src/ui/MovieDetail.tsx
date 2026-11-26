@@ -1,13 +1,15 @@
+import { Skeleton } from "./Skeleton";
 import { useState } from "preact/hooks";
 import { copiesFor, deleteCopy, deleteMovie, getMovie, saveCopy } from "../lib/db";
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, FORMAT_SHORT, type Copy } from "../lib/types";
 import { Poster } from "./Poster";
 import { IconTrash } from "./icons";
 import { go, useData } from "./util";
+import { Person } from "./Person";
 
 export function MovieDetail({ id }: { id: string }) {
   const data = useData(async () => ({ movie: await getMovie(id), copies: await copiesFor(id) }), [id]);
-  if (!data) return <div class="screen" />;
+  if (!data) return <Skeleton />;
   const { movie, copies } = data;
   if (!movie) {
     return (
@@ -75,7 +77,10 @@ function CopyEditor({ copy }: { copy: Copy }) {
       <div class="row between">
         <span class="stack">
           <b>{[FORMAT_LABEL[copy.format], copy.edition].filter(Boolean).join(" · ")}</b>
-          <span class="muted">{[copy.location, copy.added_by ? `added by ${copy.added_by}` : null].filter(Boolean).join(" · ") || "—"}</span>
+          <span class="muted row hunt-meta">
+            {copy.added_by && <Person name={copy.added_by} size={18} />}
+            {[copy.location, copy.added_by ? `added by ${copy.added_by}` : null].filter(Boolean).join(" · ") || "—"}
+          </span>
         </span>
         <button class="btn ghost" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Done" : "Edit"}</button>
       </div>

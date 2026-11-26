@@ -49,6 +49,7 @@ const HuntIn = z.object({
   poster_path: str,
   notes: str,
   found: z.boolean().default(false),
+  found_by: str,
   added_by: str,
 });
 
@@ -69,7 +70,7 @@ const TABLES = {
   },
   hunts: {
     schema: HuntIn,
-    columns: ["id", "tmdb_id", "title", "year", "poster_path", "notes", "found", "added_by", "updated_at", "updated_by", "deleted"],
+    columns: ["id", "tmdb_id", "title", "year", "poster_path", "notes", "found", "found_by", "added_by", "updated_at", "updated_by", "deleted"],
     bools: ["deleted", "found"],
   },
 } as const;

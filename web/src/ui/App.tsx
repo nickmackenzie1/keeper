@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { getMeta, onChanged } from "../lib/db";
+import { allCopies, allHunts, getMeta, myName, onChanged } from "../lib/db";
+import { setPeople } from "./Person";
 import { newlyUnlocked } from "../lib/achievements";
 import { confetti, chime, toast } from "../lib/celebrate";
 import { startLiveSync } from "../lib/live";
@@ -33,6 +34,10 @@ export function App() {
   useEffect(() => {
     if (!ready) return;
     startLiveSync();
+    // Warm up the barcode scanner in the background so the first scan opens instantly.
+    const warm = () => void import("./Scanner").then((m) => m.loadZxing()).catch(() => {});
+    if ("requestIdleCallback" in window) (window as unknown as { requestIdleCallback: (f: () => void) => void }).requestIdleCallback(warm);
+    else setTimeout(warm, 1500);
     // Celebrate newly unlocked achievements (from this phone or the other one).
     let t: ReturnType<typeof setTimeout> | undefined;
     const check = () => {
@@ -50,7 +55,22 @@ export function App() {
     return onChanged(check);
   }, [ready]);
 
-  if (ready === null) return null;
+  // Learn who's in the family (for badge colours) before drawing.
+  const [peopleReady, setPeopleReady] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    const load = async () => {
+      const names: (string | null)[] = [await myName()];
+      for (const c of await allCopies()) names.push(c.added_by);
+      for (const h of await allHunts()) names.push(h.added_by, h.found_by);
+      setPeople(names);
+      setPeopleReady(true);
+    };
+    void load();
+    return onChanged((src) => src === "remote" && void load());
+  }, [ready]);
+
+  if (ready === null || (ready && !peopleReady)) return null;
   if (!ready) return <Setup onDone={() => setReady(true)} />;
 
   const tab = path[0] ?? "check";
@@ -67,7 +87,7 @@ export function App() {
   const active = tab === "movie" || tab === "add" || tab === "tonight" ? "shelf" : tab;
   return (
     <div class="app">
-      <main>{screen}</main>
+      <main key={path.join("/") || "check"} class="route">{screen}</main>
       <nav class="tabbar" aria-label="Main">
         {TABS.map(({ id, label, Icon }) => (
           <a key={id} href={`#/${id}`} class={active === id ? "on" : ""} aria-current={active === id ? "page" : undefined}>

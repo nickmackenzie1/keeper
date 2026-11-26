@@ -25,6 +25,15 @@ registerRoute(
   }),
 );
 
+// Fonts: cached after first use so skins look right offline too.
+registerRoute(
+  ({ url }) => url.origin === "https://fonts.googleapis.com" || url.origin === "https://fonts.gstatic.com",
+  new CacheFirst({
+    cacheName: "fonts",
+    plugins: [new CacheableResponsePlugin({ statuses: [0, 200] }), new ExpirationPlugin({ maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 365 })],
+  }),
+);
+
 // A push means "the collection changed": sync silently and show the digest
 // (iOS requires a visible notification for every push).
 self.addEventListener("push", (event) => {

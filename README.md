@@ -57,10 +57,22 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 - **Rare finds** — every store scan is logged, so after a few trips Keeper can say "first time you've seen this in 14 trips".
 - Genres and series fill in automatically from TMDB (also for discs added earlier).
 
-## Updating
+## Updating (automatic)
 
-On the Synology (SSH): `cd /volume1/docker/keeper && git pull && sudo docker compose up -d --build`
-Or copy the new files over and rebuild the project in Container Manager.
+Push to `main` → GitHub Actions runs the tests and publishes `ghcr.io/nickmackenzie1/keeper:latest`
+(Intel/AMD + ARM) → the `watchtower` container on the NAS notices within ~5 minutes and restarts Keeper on
+the new image. `.env` and `data/` are never touched. Phones pick up the new app version next time they open it.
+
+One-time setup:
+1. After the first successful Action run, open GitHub → your profile → **Packages → keeper → Package settings**
+   and set visibility to **Public** (the image contains no secrets — those live in `.env` on the NAS).
+   *Prefer private?* Make a GitHub token with `read:packages`, then on the NAS run
+   `sudo docker login ghcr.io -u nickmackenzie1` and add `- /root/.docker/config.json:/config.json:ro`
+   to the watchtower volumes.
+2. On the NAS the folder only needs `docker-compose.yml` and `.env` (plus `data/`).
+3. Container Manager → stop the project → **Build** (it now pulls instead of building) → start.
+
+Manual update any time: `sudo docker compose pull && sudo docker compose up -d`.
 
 ## How staying in sync works
 

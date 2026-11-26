@@ -1,6 +1,8 @@
 services:
   keeper:
-    build: .
+    # Built by GitHub Actions on every push to main (.github/workflows/docker.yml).
+    # To build on the NAS instead, replace this line with:  build: .
+    image: ghcr.io/nickmackenzie1/keeper:latest
     container_name: keeper
     restart: unless-stopped
     env_file: .env
@@ -11,6 +13,9 @@ services:
     volumes:
       # keeper.db lives here — include this folder in Hyper Backup.
       - /volume1/docker/keeper/data:/data
+    labels:
+      # Let the watcher below auto-update this container.
+      - com.centurylinklabs.watchtower.enable=true
 
   # Cloudflare Tunnel: the NAS dials OUT to Cloudflare, so no router ports are opened.
   # Cloudflare Access (set up in the dashboard) blocks everyone except your two emails.
@@ -23,3 +28,17 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - keeper
+
+  # Auto-deploy: checks GitHub's registry every 5 minutes; when a new Keeper image
+  # exists it pulls it and restarts Keeper (data and .env are untouched).
+  # Maintained fork of the archived containrrr/watchtower.
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: keeper-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"   # only touch containers labelled above
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_CLEANUP: "true"        # delete old images so the NAS doesn't fill up

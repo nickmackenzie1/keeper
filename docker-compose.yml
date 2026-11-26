@@ -19,10 +19,14 @@ services:
 
   # Cloudflare Tunnel: the NAS dials OUT to Cloudflare, so no router ports are opened.
   # Cloudflare Access (set up in the dashboard) blocks everyone except your two emails.
+  # In Cloudflare, the route's service URL is:  http://localhost:8787
+  # (host networking means the tunnel sees Keeper exactly like the NAS itself does —
+  # no Docker network names or Synology firewall rules in the way).
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: keeper-tunnel
     restart: unless-stopped
+    network_mode: host
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}

@@ -21,7 +21,7 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 3. **Cloudflare** (needs a domain on Cloudflare, ~$10–15/yr — you can buy one there):
    1. Zero Trust dashboard → **Networks → Tunnels → Create a tunnel** (type *Cloudflared*), name it `keeper`.
    2. Copy the token from the "Install connector" step (the long string after `--token`).
-   3. **Public hostname**: `keeper.yourdomain.com` → Service `HTTP` → `keeper:8787`.
+   3. **Public hostname**: `keeper.yourdomain.com` → Service `HTTP` → `localhost:8787`.
    4. **Access → Applications → Add → Self-hosted**: domain `keeper.yourdomain.com`.
       Policy: *Allow* → *Emails* → your email and your wife's. Session duration: **1 month** (so she rarely re-logs in).
       Login method: One-time PIN (emailed code) is fine.

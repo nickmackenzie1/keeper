@@ -2,7 +2,10 @@ services:
   keeper:
     # Built right here on the NAS from this folder (Dockerfile + server/ + web/).
     # Auto-update option: see "Auto-update (optional)" in README.md.
-    build: .
+    build:
+      context: .
+      args:
+        KEEPER_VERSION: ${KEEPER_VERSION:-dev}
     image: keeper-local
     container_name: keeper
     restart: unless-stopped

@@ -59,17 +59,16 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 
 ## Updating
 
-On GitHub: **Code → Download ZIP**, copy it over `/volume1/docker/keeper` (keep `.env` and `data/`),
-then Container Manager → Project → keeper → **Stop → Build → Start**.
-Or over SSH: `cd /volume1/docker/keeper && git pull && sudo docker compose up -d --build`
+Keeper updates itself: `update.sh` checks GitHub every 15 minutes and, when there's something new,
+downloads it (leaving `.env` and `data/` alone) and rebuilds. Set it up once in DSM:
 
-### Auto-update (optional, later)
+1. **Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script**
+2. General: name `Keeper update`, user **root**
+3. Schedule: run daily, repeat **every 15 minutes**
+4. Task Settings → Run command: `sh /volume1/docker/keeper/update.sh`
 
-GitHub Actions already publishes every push to `ghcr.io/nickmackenzie1/keeper:latest`. To have the NAS pick it up
-automatically: make that package Public on GitHub, replace `build: .` / `image: keeper-local` in
-`docker-compose.yml` with `image: ghcr.io/nickmackenzie1/keeper:latest`, add the label
-`com.centurylinklabs.watchtower.enable=true` to the keeper service, and add a `nickfedor/watchtower` service
-(`WATCHTOWER_LABEL_ENABLE=true`, `WATCHTOWER_POLL_INTERVAL=300`, `WATCHTOWER_CLEANUP=true`, docker.sock mounted).
+Press **Run** on the task to update right away. Settings → Server check in the app shows the running version;
+`update.log` in the keeper folder shows what happened. If a build fails, the previous version keeps running.
 
 ## How staying in sync works
 

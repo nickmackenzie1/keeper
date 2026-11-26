@@ -5,11 +5,29 @@ import { sight } from "./sightings.js";
 
 const TMDB = config.tmdbBase;
 
+/**
+ * fetch() for outside services with a time limit, so the app never sits on
+ * "Searching…" forever, and errors that say what's actually wrong.
+ */
+export async function outbound(service: string, url: string | URL, init: RequestInit = {}, timeoutMs = 10_000): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e: any) {
+    const timedOut = e?.name === "TimeoutError" || e?.name === "AbortError";
+    console.warn(`${service} request failed:`, e?.cause?.code ?? e?.name ?? e);
+    throw Object.assign(
+      new Error(timedOut ? `${service} didn't answer in time — the NAS may not have internet access from Docker` : `Can't reach ${service} from the NAS (${e?.cause?.code ?? "network error"})`),
+      { status: 504 },
+    );
+  }
+}
+
 export async function tmdb(path: string, params: Record<string, string> = {}) {
   if (!config.tmdbToken) throw Object.assign(new Error("TMDB_READ_TOKEN not configured"), { status: 503 });
   const url = new URL(TMDB + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${config.tmdbToken}`, Accept: "application/json" } });
+  const r = await outbound("TMDB", url, { headers: { Authorization: `Bearer ${config.tmdbToken}`, Accept: "application/json" } });
+  if (r.status === 401) throw Object.assign(new Error("TMDB rejected the token — check TMDB_READ_TOKEN in .env (use the long Read Access Token)"), { status: 502 });
   if (!r.ok) throw Object.assign(new Error(`TMDB ${r.status}`), { status: 502 });
   return r.json() as Promise<any>;
 }
@@ -81,7 +99,7 @@ async function upcLookup(barcode: string): Promise<{ title: string; raw: any } |
   const headers: Record<string, string> = { Accept: "application/json" };
   if (config.upcItemDbKey) { headers.user_key = config.upcItemDbKey; headers.key_type = "3scale"; }
 
-  const r = await fetch(url, { headers });
+  const r = await outbound("Barcode lookup", url, { headers });
   if (r.status === 429) throw Object.assign(new Error("UPC lookup daily limit reached"), { status: 429 });
   if (!r.ok) throw Object.assign(new Error(`UPC lookup ${r.status}`), { status: 502 });
   const data = (await r.json()) as any;

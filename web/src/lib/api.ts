@@ -16,17 +16,22 @@ export class ApiError extends Error {
  * Cloudflare Access answers an expired session with a redirect to its login page;
  * `redirect: "manual"` lets us spot that instead of failing with a vague CORS error.
  */
-export async function api<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+export async function api<T>(path: string, init: RequestInit & { timeoutMs?: number } = {}, token?: string): Promise<T> {
   const t = token ?? (await getMeta("token")) ?? "";
+  const { timeoutMs = 25_000, ...rest } = init;
+  init = rest;
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       ...init,
+      // Never leave the screen spinning forever.
+      signal: AbortSignal.timeout(timeoutMs),
       redirect: "manual",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}`, ...(init.headers ?? {}) },
     });
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.name === "TimeoutError") throw new ApiError("Keeper didn't answer in time. Check Settings › Server check.", "server", 504);
     throw new ApiError("Can't reach Keeper", "offline");
   }
   if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
@@ -62,9 +67,13 @@ export const coverScan = (imageB64: string, store: boolean) =>
   api<{ spines: ShelfSpine[] }>("/shelf", {
     method: "POST",
     body: JSON.stringify({ image: imageB64, media_type: "image/jpeg", mode: "cover", store }),
+    timeoutMs: 120_000,
   }).then((r) => r.spines[0] ?? null);
 
 export const listDevices = () =>
   api<{ devices: { device_id: string; name: string | null; last_sync_at: number; days_since_sync: number }[] }>(
     "/devices",
   );
+
+export const diagnostics = () =>
+  api<{ tmdb: string; barcode: string; ai: string; version: string }>("/diagnostics", { timeoutMs: 30_000 });

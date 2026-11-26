@@ -1,6 +1,6 @@
 import { Skeleton } from "./Skeleton";
 import { useEffect, useState } from "preact/hooks";
-import { listDevices } from "../lib/api";
+import { diagnostics, listDevices } from "../lib/api";
 import { deviceId, getMeta, pendingCount, setMeta } from "../lib/db";
 import { sync } from "../lib/live";
 import { currentSubscription, disablePush, enablePush, isInstalled, pushSupported, testPush } from "../lib/push";
@@ -19,6 +19,7 @@ export function Settings() {
   const [pushOn, setPushOn] = useState<boolean | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [diag, setDiag] = useState<Awaited<ReturnType<typeof diagnostics>> | "checking" | "failed" | null>(null);
 
   useEffect(() => {
     listDevices().then((r) => setDevices(r.devices)).catch(() => setDevices(null));
@@ -139,6 +140,41 @@ export function Settings() {
             }}
           >
             Change access code
+          </button>
+        </section>
+
+        <section class="card">
+          <h3>Server check</h3>
+          <p class="muted">Can the Synology reach the movie database, the barcode service and the AI?</p>
+          {diag && diag !== "checking" && diag !== "failed" && (
+            <ul class="diag">
+              {([
+                ["Movie database (TMDB)", diag.tmdb],
+                ["Barcode lookups", diag.barcode],
+                ["AI photos", diag.ai],
+              ] as const).map(([label, v]) => (
+                <li key={label} class={v.startsWith("ok") || v === "configured" ? "ok" : "bad"}>
+                  <b>{v.startsWith("ok") || v === "configured" ? "✓" : "✕"} {label}</b>
+                  {!(v.startsWith("ok") || v === "configured") && <span class="muted">{v.replace(/^(error|missing): /, "")}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {diag && typeof diag === "object" && <p class="muted">Server version {diag.version.slice(0, 7)}</p>}
+          {diag === "failed" && <p class="notice">Couldn't reach Keeper's server.</p>}
+          <button
+            class="btn block"
+            disabled={diag === "checking"}
+            onClick={async () => {
+              setDiag("checking");
+              try {
+                setDiag(await diagnostics());
+              } catch {
+                setDiag("failed");
+              }
+            }}
+          >
+            {diag === "checking" ? "Checking…" : "Run server check"}
           </button>
         </section>
 

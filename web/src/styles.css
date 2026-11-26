@@ -572,3 +572,11 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
   .scan-line { top: 50%; }
 }
+
+/* Server check */
+.diag { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.diag li { display: flex; flex-direction: column; gap: 2px; }
+.diag li.ok b { color: #15803d; }
+.diag li.bad b { color: #b91c1c; }
+[data-skin="midnight"] .diag li.ok b, [data-skin="latefee"] .diag li.ok b { color: #86efac; }
+[data-skin="midnight"] .diag li.bad b, [data-skin="latefee"] .diag li.bad b { color: #fca5a5; }

@@ -1,14 +1,18 @@
+import dns from "node:dns";
 import express, { type NextFunction, type Request, type Response } from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { currentSeq, db, purgeTombstones } from "./db.js";
 import { syncRouter } from "./sync.js";
-import { lookupRouter } from "./lookup.js";
+import { lookupRouter, outbound } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
 import { enrichMovies, seriesRouter } from "./enrich.js";
 import { shelfRouter } from "./shelf.js";
+
+// Docker on Synology often has no IPv6; trying IPv6 first makes outside requests hang.
+dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 app.disable("x-powered-by");
@@ -44,6 +48,34 @@ app.get("/api/stats", (_req, res) => {
     bluray: q("SELECT COUNT(*) n FROM copies WHERE deleted = 0 AND format = 'bluray'"),
     uhd: q("SELECT COUNT(*) n FROM copies WHERE deleted = 0 AND format = 'uhd'"),
     upgrade_wanted: q("SELECT COUNT(*) n FROM copies WHERE deleted = 0 AND upgrade_wanted = 1"),
+  });
+});
+
+/** GET /api/diagnostics — can the NAS reach TMDB, the barcode service and the AI? Shown in Settings. */
+app.get("/api/diagnostics", async (_req, res) => {
+  const check = async (fn: () => Promise<string>) => {
+    try {
+      return await fn();
+    } catch (e: any) {
+      return `error: ${e?.message ?? e}`;
+    }
+  };
+  const [tmdb, upc] = await Promise.all([
+    check(async () => {
+      if (!config.tmdbToken) return "missing: add TMDB_READ_TOKEN to .env";
+      const r = await outbound("TMDB", `${config.tmdbBase}/configuration`, { headers: { Authorization: `Bearer ${config.tmdbToken}` } }, 8000);
+      return r.ok ? "ok" : r.status === 401 ? "error: token rejected — use the long Read Access Token" : `error: HTTP ${r.status}`;
+    }),
+    check(async () => {
+      const r = await outbound("Barcode lookup", `${config.upcBase}/prod/trial/lookup?upc=025192012920`, {}, 8000);
+      return r.ok ? "ok" : r.status === 429 ? "ok (daily limit reached)" : `error: HTTP ${r.status}`;
+    }),
+  ]);
+  res.json({
+    tmdb,
+    barcode: upc,
+    ai: config.anthropicKey ? "configured" : "missing: add ANTHROPIC_API_KEY to .env for cover & shelf photos",
+    version: process.env.KEEPER_VERSION ?? "dev",
   });
 });
 

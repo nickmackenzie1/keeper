@@ -22,7 +22,8 @@ RUN npm run build && npm prune --omit=dev
 # ---- run ----
 FROM node:22-bookworm-slim
 WORKDIR /app
-ENV NODE_ENV=production DATA_DIR=/data PORT=8787 WEB_DIR=/app/web
+ARG KEEPER_VERSION=dev
+ENV NODE_ENV=production DATA_DIR=/data PORT=8787 WEB_DIR=/app/web KEEPER_VERSION=$KEEPER_VERSION
 COPY --from=server /app/node_modules ./node_modules
 COPY --from=server /app/dist ./dist
 COPY --from=web /web/dist ./web

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
-import { cleanTitle, movieDetails, searchMovies } from "./lookup.js";
+import { cleanTitle, movieDetails, outbound, searchMovies } from "./lookup.js";
 import { sight, type Rarity } from "./sightings.js";
 
 /**
@@ -53,7 +53,7 @@ type Spine = {
 };
 
 async function readSpines(imageB64: string, mediaType: string, prompt = PROMPT): Promise<Spine[]> {
-  const r = await fetch(`${config.anthropicBase}/v1/messages`, {
+  const r = await outbound("The AI service", `${config.anthropicBase}/v1/messages`, {
     method: "POST",
     headers: {
       "x-api-key": config.anthropicKey,
@@ -73,7 +73,7 @@ async function readSpines(imageB64: string, mediaType: string, prompt = PROMPT):
         },
       ],
     }),
-  });
+  }, 90_000);
   if (!r.ok) {
     const body = await r.text();
     console.warn("Anthropic error", r.status, body.slice(0, 300));

@@ -5,7 +5,7 @@ import path from "node:path";
 import { config } from "./config.js";
 import { currentSeq, db, purgeTombstones } from "./db.js";
 import { syncRouter } from "./sync.js";
-import { lookupRouter, outbound } from "./lookup.js";
+import { lookupRouter, outbound, tmdbFetch } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
 import { colourMovies, enrichMovies, seriesRouter } from "./enrich.js";
@@ -63,12 +63,17 @@ app.get("/api/diagnostics", async (_req, res) => {
   const [tmdb, upc] = await Promise.all([
     check(async () => {
       if (!config.tmdbToken) return "missing: add TMDB_READ_TOKEN to .env";
-      const r = await outbound("TMDB", `${config.tmdbBase}/configuration`, { headers: { Authorization: `Bearer ${config.tmdbToken}` } }, 8000);
-      return r.ok ? "ok" : r.status === 401 ? "error: token rejected — use the long Read Access Token" : `error: HTTP ${r.status}`;
+      const r = await tmdbFetch(new URL(`${config.tmdbBase}/configuration`), 8000);
+      if (r.ok) return "ok";
+      if (r.status !== 401) return `error: HTTP ${r.status}`;
+      const t = config.tmdbToken;
+      const shape = t.startsWith("eyJ") ? `looks like a Read Access Token (${t.length} characters) but TMDB says it's not valid — copy it again` : `isn't a TMDB key (${t.length} characters) — paste the API Read Access Token or the 32-character API Key`;
+      return `error: key rejected — the TMDB_READ_TOKEN in .env ${shape}`;
     }),
     check(async () => {
-      const r = await outbound("Barcode lookup", `${config.upcBase}/prod/trial/lookup?upc=025192012920`, {}, 8000);
-      return r.ok ? "ok" : r.status === 429 ? "ok (daily limit reached)" : `error: HTTP ${r.status}`;
+      const r = await outbound("Barcode lookup", `${config.upcBase}/prod/trial/lookup?upc=025192012927`, { headers: { Accept: "application/json" } }, 8000);
+      // Any answer from the service means it's reachable; only network errors and 5xx are real problems.
+      return r.ok || r.status === 400 || r.status === 404 ? "ok" : r.status === 429 ? "ok (daily limit reached)" : `error: HTTP ${r.status}`;
     }),
   ]);
   res.json({

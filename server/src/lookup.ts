@@ -23,12 +23,21 @@ export async function outbound(service: string, url: string | URL, init: Request
   }
 }
 
+/** TMDB accepts either the long Read Access Token (Bearer) or the short 32-character API key (query param). */
+export function tmdbFetch(url: URL, timeoutMs?: number) {
+  const key = config.tmdbToken;
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (/^[0-9a-f]{32}$/i.test(key)) url.searchParams.set("api_key", key);
+  else headers.Authorization = `Bearer ${key}`;
+  return outbound("TMDB", url, { headers }, timeoutMs);
+}
+
 export async function tmdb(path: string, params: Record<string, string> = {}) {
   if (!config.tmdbToken) throw Object.assign(new Error("TMDB_READ_TOKEN not configured"), { status: 503 });
   const url = new URL(TMDB + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const r = await outbound("TMDB", url, { headers: { Authorization: `Bearer ${config.tmdbToken}`, Accept: "application/json" } });
-  if (r.status === 401) throw Object.assign(new Error("TMDB rejected the token — check TMDB_READ_TOKEN in .env (use the long Read Access Token)"), { status: 502 });
+  const r = await tmdbFetch(url);
+  if (r.status === 401) throw Object.assign(new Error("TMDB rejected the key — check TMDB_READ_TOKEN in .env"), { status: 502 });
   if (!r.ok) throw Object.assign(new Error(`TMDB ${r.status}`), { status: 502 });
   return r.json() as Promise<any>;
 }
@@ -104,6 +113,8 @@ async function upcLookup(barcode: string): Promise<{ title: string; raw: any } |
 
   const r = await outbound("Barcode lookup", url, { headers });
   if (r.status === 429) throw Object.assign(new Error("UPC lookup daily limit reached"), { status: 429 });
+  // 400 = "not a valid UPC" (bad checksum, odd length), 404 = unknown. Either way: no product.
+  if (r.status === 400 || r.status === 404) return null;
   if (!r.ok) throw Object.assign(new Error(`UPC lookup ${r.status}`), { status: 502 });
   const data = (await r.json()) as any;
   const item = data.items?.[0];

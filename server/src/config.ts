@@ -6,9 +6,9 @@ export const config = {
   // Shared secret both phones enter once in Keeper's setup screen.
   apiToken: process.env.KEEPER_API_TOKEN ?? "",
   // TMDB "API Read Access Token" (v4) from https://www.themoviedb.org/settings/api
-  tmdbToken: process.env.TMDB_READ_TOKEN ?? "",
+  tmdbToken: cleanSecret(process.env.TMDB_READ_TOKEN),
   // Optional: UPCitemdb paid key. Without it the free trial endpoint is used (~100 lookups/day).
-  upcItemDbKey: process.env.UPCITEMDB_KEY ?? "",
+  upcItemDbKey: cleanSecret(process.env.UPCITEMDB_KEY),
   // A phone that hasn't synced in this many days gets a full fresh copy.
   fullResyncDays: Number(process.env.FULL_RESYNC_DAYS ?? 14),
   // Deleted rows are kept this long so other phones learn about the delete, then purged.
@@ -31,4 +31,9 @@ export const config = {
 
 if (!config.apiToken) {
   console.warn("⚠️  KEEPER_API_TOKEN is not set — the API is open to anyone who can reach it.");
+}
+
+/** Forgive the usual .env slips: stray spaces, wrapping quotes, a pasted "Bearer " prefix. */
+function cleanSecret(v: string | undefined): string {
+  return (v ?? "").trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "").trim();
 }

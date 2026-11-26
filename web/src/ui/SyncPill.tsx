@@ -25,10 +25,10 @@ export function SyncPill() {
     label = "Syncing…";
     state = "busy";
   } else if (st.last && !st.last.ok) {
-    label = st.last.error === "login_required" ? "Sign in needed" : `Offline copy · ${timeAgo(lastAt)}`;
+    label = st.last.error === "login_required" ? "Sign in" : `Offline · ${timeAgo(lastAt)}`;
     state = st.last.error === "login_required" ? "warn" : stale ? "warn" : "off";
   } else {
-    label = `Synced ${timeAgo(lastAt)}`;
+    label = timeAgo(lastAt) === "just now" ? "Synced" : `Synced ${timeAgo(lastAt)}`;
     state = stale ? "warn" : "ok";
   }
 

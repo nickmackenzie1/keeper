@@ -13,7 +13,10 @@ export function Poster({ movie, size = "w342", class: cls = "", badge }: Props) 
       {src && !failed ? (
         <img src={src} alt={movie.title} loading="lazy" decoding="async" onError={() => setFailed(true)} />
       ) : (
-        <span class="poster-title">{movie.title}</span>
+        <>
+          <span class="poster-title">{movie.title}</span>
+          <span class="poster-initial" aria-hidden="true">{movie.title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase()}</span>
+        </>
       )}
       {badge && <span class="poster-badge">{badge}</span>}
     </div>

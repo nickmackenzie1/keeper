@@ -101,11 +101,11 @@ export function Hunt() {
                 <div class="stack">
                   <b>{h.title}</b>
                   <span class="muted">
-                    {[h.year, h.added_by ? `${h.added_by}` : null].filter(Boolean).join(" · ")}
+                    {[h.year, h.added_by ? `added by ${h.added_by}` : null].filter(Boolean).join(" · ")}
                   </span>
                   {h.notes && <span class="muted">{h.notes}</span>}
                 </div>
-                <div class="row">
+                <div class="row hunt-actions">
                   <button class="btn small grow" onClick={() => void saveHunt({ ...strip(h), found: true })}>Found it</button>
                   <button class="btn small icon-btn" aria-label={`Remove ${h.title}`} onClick={() => void saveHunt({ ...strip(h), deleted: true })}>
                     <IconTrash />

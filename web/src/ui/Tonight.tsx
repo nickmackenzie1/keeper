@@ -141,6 +141,14 @@ export function Tonight() {
               )}
             </>
           ) : (
+            <>
+            {pool.length > 0 && (
+              <div class="tonight-fan" aria-hidden="true">
+                {pool.slice(0, 3).map((m, i) => (
+                  <Poster key={m.id} movie={m} size="w342" class={`fan-${i}`} />
+                ))}
+              </div>
+            )}
             <p class="muted center">
               {pool.length
                 ? `${pool.length} movie${pool.length === 1 ? "" : "s"} to choose from.`
@@ -148,6 +156,7 @@ export function Tonight() {
                   ? "Nothing on your shelf matches — loosen the filters."
                   : "Add some movies first."}
             </p>
+            </>
           )}
         </div>
 

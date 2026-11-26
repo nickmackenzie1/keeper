@@ -16,6 +16,8 @@ export interface Verdict {
   unknown?: boolean;
   /** It's on the hunt list! */
   hunt?: Hunt;
+  /** This exact barcode is already in the collection. */
+  exact?: boolean;
   /** How often you've seen it on store trips. */
   rarity?: Rarity | null;
 }
@@ -83,7 +85,7 @@ export async function verdictForBarcode(code: string, opts: { store?: boolean } 
     const copies = movie ? await copiesFor(movie.id) : exact;
     const v = judge(movie, copies, exact[0].format);
     // Same barcode = this exact disc edition; it's never an upgrade.
-    return v.kind === "upgrade" ? { ...v, kind: "have" } : v;
+    return { ...v, kind: "have", exact: true };
   }
 
   let lookup: BarcodeLookup;

@@ -269,14 +269,14 @@ function AddForm({ pick, barcode, initialFormat, onBack }: { pick: Pick; barcode
             ))}
           </div>
         </fieldset>
-        <label class="field">Edition <span class="muted">(optional)</span>
+        <label class="field"><span>Edition <span class="muted">(optional)</span></span>
           <input placeholder="Steelbook, Criterion, Director's Cut…" value={edition} onInput={(e) => setEdition((e.target as HTMLInputElement).value)} />
         </label>
-        <label class="field">Where it lives <span class="muted">(optional)</span>
+        <label class="field"><span>Where it lives <span class="muted">(optional)</span></span>
           <input list="locations" placeholder="Living room, basement…" value={location} onInput={(e) => setLocation((e.target as HTMLInputElement).value)} />
           <datalist id="locations">{(locations ?? []).map((l) => <option key={l} value={l} />)}</datalist>
         </label>
-        <label class="field">Notes <span class="muted">(optional)</span>
+        <label class="field"><span>Notes <span class="muted">(optional)</span></span>
           <input value={notes} onInput={(e) => setNotes((e.target as HTMLInputElement).value)} />
         </label>
         {barcode && <p class="muted">Barcode {barcode} will be saved so future scans match instantly.</p>}

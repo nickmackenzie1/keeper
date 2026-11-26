@@ -39,3 +39,9 @@ export const IconStar = () => (
 export const IconCamera = () => (
   <svg {...base}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
 );
+export const IconStack = () => (
+  <svg {...base}><rect x="4" y="14" width="16" height="5" rx="1" /><rect x="5" y="9" width="14" height="5" rx="1" /><rect x="6" y="4" width="12" height="5" rx="1" /></svg>
+);
+export const IconShelfPhoto = () => (
+  <svg {...base}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9v6M10 9v6M13 8v7M16 10v5" /></svg>
+);

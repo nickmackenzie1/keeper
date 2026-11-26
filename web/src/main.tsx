@@ -6,7 +6,15 @@ import { getMeta } from "./lib/db";
 import "./styles.css";
 
 // The skin is also applied pre-paint from localStorage in index.html; this keeps it in step with IndexedDB.
-getMeta("theme").then((s) => applySkin((s as Skin) ?? "catalog"));
+getMeta("theme").then((s) => {
+  let local: string | null = null;
+  try {
+    local = localStorage.getItem("keeper-skin");
+  } catch {
+    /* private mode */
+  }
+  applySkin(((s as Skin | undefined) ?? (local as Skin | null) ?? "catalog") as Skin);
+});
 
 // New versions install in the background and take over on next launch.
 registerSW({ immediate: true });

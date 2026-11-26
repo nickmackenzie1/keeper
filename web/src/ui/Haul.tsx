@@ -148,7 +148,7 @@ export function Haul({ onClose }: { onClose: () => void }) {
                   ) : (
                     <span class="haul-check-spacer" />
                   )}
-                  {cand ? <Poster movie={cand} size="w185" class="thumb" /> : <span class="thumb poster" />}
+                  {cand ? <Poster movie={cand} size="w185" class="thumb" /> : <span class="thumb poster thumb-empty" aria-hidden="true">?</span>}
                   <span class="stack grow">
                     <b>{cand?.title ?? `Barcode ${i.code}`}</b>
                     <span class="muted">
@@ -174,12 +174,10 @@ export function Haul({ onClose }: { onClose: () => void }) {
         {items.some((i) => kindOf(i.verdict) === "new" || kindOf(i.verdict) === "upgrade") && (
           <p class="muted">Tick the ones you bought. Tap a format tag to change it.</p>
         )}
-        <div class="row">
-          <button class="btn grow" onClick={() => setScanning(true)}>Scan more</button>
-          <button class="btn primary grow" disabled={adding || toAdd.length === 0} onClick={() => void addAll()}>
-            {adding ? "Adding…" : `Add ${toAdd.length} to collection`}
-          </button>
-        </div>
+        <button class="btn primary block" disabled={adding || toAdd.length === 0} onClick={() => void addAll()}>
+          {adding ? "Adding…" : toAdd.length ? `Add ${toAdd.length} to collection` : "Nothing ticked to add"}
+        </button>
+        <button class="btn block" onClick={() => setScanning(true)}>Scan more</button>
       </div>
     </div>
   );

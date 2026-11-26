@@ -10,7 +10,7 @@ import { ShelfScan } from "./ShelfScan";
 import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
-import { IconCamera, IconScan, IconSearch } from "./icons";
+import { IconCamera, IconScan, IconSearch, IconShelfPhoto, IconStack } from "./icons";
 import { SyncPill } from "./SyncPill";
 
 const HEADLINE: Record<Verdict["kind"], string> = {
@@ -27,7 +27,8 @@ function summary(v: Verdict): string {
     case "upgrade":
       return `You have ${title} on ${owned}. This one's ${FORMAT_LABEL[v.scanned!]}.`;
     case "have":
-      return `You own ${title} on ${owned}${v.scanned ? ` — this ${FORMAT_LABEL[v.scanned]} isn't an upgrade` : ""}.`;
+      if (v.exact) return `This exact ${FORMAT_LABEL[v.scanned ?? "dvd"]} of ${title} is already yours.`;
+      return `You own ${title} on ${owned}${v.scanned ? ` — this ${FORMAT_LABEL[v.scanned]} isn't better` : ""}.`;
     case "owned":
       return `You own ${title} on ${owned}. Check the case to see if this one's better.`;
     default:
@@ -60,11 +61,13 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
           <span>{v.hunt.added_by ? `${v.hunt.added_by} has been looking for this` : "You've been looking for this"}{v.hunt.notes ? ` · ${v.hunt.notes}` : ""}</span>
         </div>
       )}
+      <div class="stack">
+        <span class="eyebrow">{v.scanned && v.scanned !== "other" ? `Scanned · ${FORMAT_LABEL[v.scanned]}` : "Result"}</span>
+        <h2 class="verdict-title">{v.unknown ? "Unknown disc" : HEADLINE[v.kind]}</h2>
+      </div>
       <div class="verdict-head">
         {display && <Poster movie={display} size="w185" class="verdict-poster" />}
         <div class="stack">
-          <span class="eyebrow">{v.scanned && v.scanned !== "other" ? `Scanned · ${FORMAT_LABEL[v.scanned]}` : "Result"}</span>
-          <h2 class="verdict-title">{v.unknown ? "Unknown disc" : HEADLINE[v.kind]}</h2>
           <p class="verdict-sub">{summary(v)}</p>
           {v.rarity?.rare && v.kind !== "have" && (
             <span class="rare-note">Rare find · first time you've seen it in {v.rarity.trips} trips</span>
@@ -79,8 +82,12 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
             .map((c) => (
               <li key={c.id}>
                 <span class="chip" data-format={c.format}>{FORMAT_SHORT[c.format]}</span>
-                <span>{[FORMAT_LABEL[c.format], c.edition].filter(Boolean).join(" · ")}</span>
-                <span class="muted">{c.location ?? ""}{c.upgrade_wanted ? " · wants upgrade" : ""}</span>
+                <span class="stack">
+                  <span>{c.edition ?? FORMAT_LABEL[c.format]}</span>
+                  {(c.location || c.upgrade_wanted) && (
+                    <span class="muted">{[c.location, c.upgrade_wanted ? "wants upgrade" : null].filter(Boolean).join(" · ")}</span>
+                  )}
+                </span>
               </li>
             ))}
         </ul>
@@ -88,7 +95,7 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
       <div class="row">
         {(v.kind === "not_owned" || v.kind === "upgrade") && !v.unknown && (
           <a class="btn primary grow" href={addHref()}>
-            {v.kind === "upgrade" ? `Grab it · add ${FORMAT_LABEL[v.scanned!]}` : "Bought it — add"}
+            {v.kind === "upgrade" ? `Add ${FORMAT_LABEL[v.scanned!]}` : "Bought it"}
           </a>
         )}
         {v.movie && v.kind !== "upgrade" && (
@@ -253,7 +260,7 @@ export function Check() {
               <h2 class="verdict-title">Not in your collection</h2>
               <p class="verdict-sub">Nothing on your shelf matches “{q}”.</p>
               <div class="row">
-                <a class="btn primary grow" href={`#/add?q=${encodeURIComponent(q)}`}>Bought it — add</a>
+                <a class="btn primary grow" href={`#/add?q=${encodeURIComponent(q)}`}>Bought it</a>
               </div>
             </section>
           )
@@ -264,28 +271,32 @@ export function Check() {
             <button class="hero-scan" onClick={startScan}>
               <IconScan />
               <span class="hero-scan-title">Scan a disc</span>
-              <span class="muted">Instantly see if you own it, or if it's an upgrade. Works without signal.</span>
+              <span class="muted">See if you own it or if it's an upgrade. Works without signal.</span>
             </button>
-            <button
-              class="haul-start"
-              onClick={() => {
-                primeAudio();
-                setHaul(true);
-              }}
-            >
-              <span class="haul-start-title">Haul mode</span>
-              <span class="muted">Got a stack? Scan them all, then see what's new.</span>
-            </button>
-            <button
-              class="haul-start"
-              onClick={() => {
-                primeAudio();
-                setShelf(true);
-              }}
-            >
-              <span class="haul-start-title">Shelf scan</span>
-              <span class="muted">Photo a whole shelf. Keeper spots hunt-list movies, collector editions and rare finds.</span>
-            </button>
+            <div class="start-tiles">
+              <button
+                class="start-tile"
+                onClick={() => {
+                  primeAudio();
+                  setHaul(true);
+                }}
+              >
+                <IconStack />
+                <span class="start-tile-title">Haul mode</span>
+                <span class="muted">Scan a whole stack</span>
+              </button>
+              <button
+                class="start-tile"
+                onClick={() => {
+                  primeAudio();
+                  setShelf(true);
+                }}
+              >
+                <IconShelfPhoto />
+                <span class="start-tile-title">Shelf scan</span>
+                <span class="muted">Photo a shelf, find the gems</span>
+              </button>
+            </div>
           </>
         )}
       </div>

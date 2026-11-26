@@ -4,6 +4,7 @@ import { searchHunts, searchLocal, verdictForBarcode, type Verdict } from "../li
 import { celebrate, primeAudio } from "../lib/celebrate";
 import { addHunt } from "../lib/db";
 import { Haul } from "./Haul";
+import { ShelfScan } from "./ShelfScan";
 import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
@@ -63,6 +64,9 @@ export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
           <span class="eyebrow">{v.scanned && v.scanned !== "other" ? `Scanned · ${FORMAT_LABEL[v.scanned]}` : "Result"}</span>
           <h2 class="verdict-title">{v.unknown ? "Unknown disc" : HEADLINE[v.kind]}</h2>
           <p class="verdict-sub">{summary(v)}</p>
+          {v.rarity?.rare && v.kind !== "have" && (
+            <span class="rare-note">Rare find · first time you've seen it in {v.rarity.trips} trips</span>
+          )}
         </div>
       </div>
       {v.copies.length > 0 && (
@@ -140,6 +144,7 @@ export function Check() {
   const [results, setResults] = useState<Movie[] | null>(null);
   const [hunts, setHunts] = useState<Hunt[]>([]);
   const [haul, setHaul] = useState(false);
+  const [shelf, setShelf] = useState(false);
 
   useEffect(() => {
     if (!q.trim()) return setResults(null);
@@ -154,7 +159,7 @@ export function Check() {
     setBusy(true);
     setQ("");
     try {
-      const v = await verdictForBarcode(code);
+      const v = await verdictForBarcode(code, { store: true });
       setVerdict(v);
       if (v.hunt) celebrate();
     } finally {
@@ -240,12 +245,23 @@ export function Check() {
               <span class="haul-start-title">Haul mode</span>
               <span class="muted">Got a stack? Scan them all, then see what's new.</span>
             </button>
+            <button
+              class="haul-start"
+              onClick={() => {
+                primeAudio();
+                setShelf(true);
+              }}
+            >
+              <span class="haul-start-title">Shelf scan</span>
+              <span class="muted">Photo a whole shelf. Keeper spots hunt-list movies, collector editions and rare finds.</span>
+            </button>
           </>
         )}
       </div>
 
       {scanning && <Scanner onCode={onCode} onClose={() => setScanning(false)} />}
       {haul && <Haul onClose={() => setHaul(false)} />}
+      {shelf && <ShelfScan onClose={() => setShelf(false)} />}
     </div>
   );
 }

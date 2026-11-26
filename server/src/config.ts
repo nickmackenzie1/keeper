@@ -17,7 +17,13 @@ export const config = {
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:keeper@example.com",
   pushDebounceMinutes: Number(process.env.PUSH_DEBOUNCE_MINUTES ?? 10),
   pushMinHours: Number(process.env.PUSH_MIN_HOURS ?? 12),
+  // Shelf scan (AI reads DVD spines from a photo). Leave blank to turn the feature off.
+  anthropicKey: process.env.ANTHROPIC_API_KEY ?? "",
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
+  // Safety net on cost: max shelf photos per day across both phones.
+  shelfDailyLimit: Number(process.env.SHELF_DAILY_LIMIT ?? 40),
   // Only changed for testing against mock services.
+  anthropicBase: process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com",
   tmdbBase: process.env.TMDB_API_BASE ?? "https://api.themoviedb.org/3",
   upcBase: process.env.UPC_API_BASE ?? "https://api.upcitemdb.com",
 };

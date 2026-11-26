@@ -8,10 +8,11 @@ import { lookupRouter } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
 import { enrichMovies, seriesRouter } from "./enrich.js";
+import { shelfRouter } from "./shelf.js";
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "12mb" })); // shelf photos
 
 // Unauthenticated: the app pings this to see whether the server is reachable.
 app.get("/api/health", (_req, res) => {
@@ -32,6 +33,7 @@ app.use("/api", lookupRouter);
 app.use("/api", eventsRouter);
 app.use("/api", pushRouter);
 app.use("/api", seriesRouter);
+app.use("/api", shelfRouter);
 
 app.get("/api/stats", (_req, res) => {
   const q = (sql: string) => (db.prepare(sql).get() as { n: number }).n;

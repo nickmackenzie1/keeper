@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
+import { sight } from "./sightings.js";
 
 const TMDB = config.tmdbBase;
 
@@ -13,7 +14,10 @@ export async function tmdb(path: string, params: Record<string, string> = {}) {
   return r.json() as Promise<any>;
 }
 
-type MovieHit = { tmdb_id: number; title: string; year: number | null; poster_path: string | null; overview: string };
+type MovieHit = {
+  tmdb_id: number; title: string; year: number | null; poster_path: string | null; overview: string;
+  rating: number | null; votes: number | null;
+};
 
 const toHit = (m: any): MovieHit => ({
   tmdb_id: m.id,
@@ -21,6 +25,8 @@ const toHit = (m: any): MovieHit => ({
   year: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
   poster_path: m.poster_path ?? null,
   overview: m.overview ?? "",
+  rating: typeof m.vote_average === "number" ? Math.round(m.vote_average * 10) / 10 : null,
+  votes: typeof m.vote_count === "number" ? m.vote_count : null,
 });
 
 /** Full details incl. genres and series (TMDB "collection"). */
@@ -113,11 +119,16 @@ lookupRouter.get("/barcode/:upc", async (req, res, next) => {
     const product = await upcLookup(upc);
     if (!product) { res.json({ barcode: upc, product_title: null, format: null, candidates: [] }); return; }
     const title = cleanTitle(product.title);
+    const candidates = title ? await searchMovies(title) : [];
+    // Log that we saw this in a store; tells the phone if it's a rare find for you.
+    // Only scans from the store screens (?store=1) count — not adding discs at home.
+    const rarity = candidates[0] && req.query.store === "1" ? sight(candidates[0].tmdb_id, candidates[0].title, "barcode") : null;
     res.json({
       barcode: upc,
       product_title: product.title,
       format: detectFormat(product.title),
-      candidates: title ? await searchMovies(title) : [],
+      candidates,
+      rarity,
     });
   } catch (e) { next(e); }
 });

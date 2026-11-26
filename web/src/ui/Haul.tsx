@@ -58,7 +58,7 @@ export function Haul({ onClose }: { onClose: () => void }) {
     });
     if (dupe) return;
     chime("blip");
-    const v = await verdictForBarcode(code);
+    const v = await verdictForBarcode(code, { store: true });
     const k = kindOf(v);
     update(code, {
       verdict: v,
@@ -152,7 +152,7 @@ export function Haul({ onClose }: { onClose: () => void }) {
                   <span class="stack grow">
                     <b>{cand?.title ?? `Barcode ${i.code}`}</b>
                     <span class="muted">
-                      {i.added ? "Added ✓" : v?.hunt ? "On your hunt list!" : k === "unknown" ? "Couldn't identify — add by title later" : cand && "year" in cand && cand.year ? String(cand.year) : ""}
+                      {i.added ? "Added ✓" : v?.hunt ? "On your hunt list!" : v?.rarity?.rare && k !== "have" ? `Rare find · first in ${v.rarity.trips} trips` : k === "unknown" ? "Couldn't identify — add by title later" : cand && "year" in cand && cand.year ? String(cand.year) : ""}
                     </span>
                   </span>
                   <span class={`tag tag-${k}`}>{LABEL[k]}</span>

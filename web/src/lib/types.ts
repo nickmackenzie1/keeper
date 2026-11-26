@@ -85,6 +85,8 @@ export interface TmdbHit {
   poster_path: string | null;
   overview: string;
   runtime?: number | null;
+  rating?: number | null;
+  votes?: number | null;
   genres?: string | null;
   collection_id?: number | null;
   collection_name?: string | null;
@@ -95,6 +97,27 @@ export interface BarcodeLookup {
   product_title: string | null;
   format: Format | null;
   candidates: TmdbHit[];
+  rarity?: Rarity | null;
+}
+
+/** How often you've seen this movie on store trips (logged by the server). */
+export interface Rarity {
+  seen_before: number;
+  trips: number;
+  rare: boolean;
+}
+
+export interface ShelfSpine {
+  title: string;
+  year: number | null;
+  format: Format | "unknown";
+  label: string | null;
+  edition: string | null;
+  collector: boolean;
+  collector_reason: string | null;
+  confidence: "high" | "medium" | "low";
+  match: (TmdbHit & { collection_id: number | null; collection_name: string | null }) | null;
+  rarity: Rarity | null;
 }
 
 export const posterUrl = (path: string | null, size: "w185" | "w342" | "w500" = "w342") =>

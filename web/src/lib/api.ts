@@ -1,5 +1,5 @@
 import { getMeta } from "./db";
-import type { BarcodeLookup, Series, TmdbHit } from "./types";
+import type { BarcodeLookup, Series, ShelfSpine, TmdbHit } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -50,7 +50,12 @@ export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | nul
 
 export const fetchSeries = () => api<{ series: Series[] }>("/series").then((r) => r.series);
 
-export const lookupBarcode = (upc: string) => api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}`);
+/** `store`: this scan happened in a store, so log it for rarity tracking. */
+export const lookupBarcode = (upc: string, store = false) =>
+  api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}${store ? "?store=1" : ""}`);
+
+export const shelfScan = (imageB64: string) =>
+  api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg" }) }).then((r) => r.spines);
 
 export const listDevices = () =>
   api<{ devices: { device_id: string; name: string | null; last_sync_at: number; days_since_sync: number }[] }>(

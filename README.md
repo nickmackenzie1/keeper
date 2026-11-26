@@ -51,6 +51,8 @@ Synology: Docker → keeper (Node/Express + SQLite keeper.db) + cloudflared tunn
 - **Stats** — discs by format, decade and genre, finds per month, upgrade progress.
 - **Achievements** — "First 4K", "Century Club", "Completed Back to the Future", and more.
 - **Series gaps** — "You own Alien — missing Aliens, Alien³", with one tap to put them on the hunt list.
+- **Shelf scan** — photo of a shelf → AI reads the spines → *Worth a look* (hunt-list matches, collector editions like Criterion / Scream Factory / steelbooks, rare finds, upgrades, gaps in your series, highly rated), *Also on the shelf*, *Already yours*. Needs `ANTHROPIC_API_KEY`; about 1–3¢ per photo, capped by `SHELF_DAILY_LIMIT`.
+- **Rare finds** — every store scan is logged, so after a few trips Keeper can say "first time you've seen this in 14 trips".
 - Genres and series fill in automatically from TMDB (also for discs added earlier).
 
 ## Updating

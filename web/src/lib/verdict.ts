@@ -1,6 +1,6 @@
 import { allHunts, allMovies, copiesByBarcode, copiesFor, getMovie, movieByTmdb } from "./db";
 import { ApiError, lookupBarcode } from "./api";
-import { FORMAT_RANK, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie } from "./types";
+import { FORMAT_RANK, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity } from "./types";
 
 export type VerdictKind = "not_owned" | "upgrade" | "have" | "owned";
 
@@ -16,6 +16,8 @@ export interface Verdict {
   unknown?: boolean;
   /** It's on the hunt list! */
   hunt?: Hunt;
+  /** How often you've seen it on store trips. */
+  rarity?: Rarity | null;
 }
 
 /** Core rule: compare the disc in hand with what we own. */
@@ -74,7 +76,7 @@ export async function searchHunts(q: string): Promise<Hunt[]> {
  * 2) Online: ask the server what the barcode is, then match by TMDB id or title.
  * 3) Offline and unknown: say so, suggest typing the title.
  */
-export async function verdictForBarcode(code: string): Promise<Verdict> {
+export async function verdictForBarcode(code: string, opts: { store?: boolean } = {}): Promise<Verdict> {
   const exact = await copiesByBarcode(code);
   if (exact.length) {
     const movie = (await getMovie(exact[0].movie_id)) ?? null;
@@ -86,7 +88,7 @@ export async function verdictForBarcode(code: string): Promise<Verdict> {
 
   let lookup: BarcodeLookup;
   try {
-    lookup = await lookupBarcode(code);
+    lookup = await lookupBarcode(code, opts.store);
   } catch (e) {
     if (e instanceof ApiError) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
     throw e;
@@ -102,7 +104,7 @@ export async function verdictForBarcode(code: string): Promise<Verdict> {
     movie = (await allMovies()).find((m) => normalizeTitle(m.title) === want) ?? null;
   }
   const copies = movie ? await copiesFor(movie.id) : [];
-  const v: Verdict = { ...judge(movie, copies, lookup.format), lookup, unknown: !lookup.product_title };
+  const v: Verdict = { ...judge(movie, copies, lookup.format), lookup, unknown: !lookup.product_title, rarity: lookup.rarity };
   if (v.kind === "not_owned" || v.kind === "upgrade") {
     v.hunt = await matchHunt(lookup.candidates.slice(0, 3).map((c) => c.tmdb_id), lookup.candidates[0]?.title);
   }

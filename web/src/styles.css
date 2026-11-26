@@ -431,3 +431,15 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); animation: pop 0.3s ease-out; transition: opacity 0.4s, transform 0.4s; max-width: 90vw;
 }
 .toast.out { opacity: 0; transform: translateY(-10px); }
+
+/* ============ Shelf scan (v0.3) ============ */
+.shelf-preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); }
+.shelf-row { display: flex; gap: 12px; padding: 12px 14px; align-items: flex-start; }
+.shelf-row b { font-weight: 600; }
+.shelf-row .row.wrap { gap: 6px; }
+.tag-hunt { background: var(--accent); color: var(--on-accent); }
+.tag-collector { background: #4c1d95; color: #ede9fe; }
+.tag-rare { background: #0f766e; color: #ccfbf1; }
+.tag-series { background: var(--chip-bd-bg); color: var(--chip-bd-fg); }
+.tag-rated { background: var(--surface-2); color: var(--text); }
+.rare-note { align-self: flex-start; margin-top: 4px; font-size: 13px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #0f766e; color: #ccfbf1; }

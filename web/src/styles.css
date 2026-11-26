@@ -580,3 +580,10 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .diag li.bad b { color: #b91c1c; }
 [data-skin="midnight"] .diag li.ok b, [data-skin="latefee"] .diag li.ok b { color: #86efac; }
 [data-skin="midnight"] .diag li.bad b, [data-skin="latefee"] .diag li.bad b { color: #fca5a5; }
+
+/* Fix match / change poster */
+.fixer .list-row.current { background: var(--surface-2); }
+.poster-picker { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.poster-picker button { display: block; width: 100%; padding: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: pointer; aspect-ratio: 2 / 3; }
+.poster-picker button.on { border-color: var(--accent); }
+.poster-picker img { width: 100%; height: 100%; object-fit: cover; display: block; }

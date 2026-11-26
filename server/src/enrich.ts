@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
-import { movieDetails, tmdb } from "./lookup.js";
+import { cleanTitle, movieDetails, searchMovies, tmdb } from "./lookup.js";
 import { upsertRow } from "./sync.js";
 import { broadcastChange } from "./events.js";
 
@@ -16,6 +16,7 @@ export async function enrichMovies(limit = 40) {
   running = true;
   let n = 0;
   try {
+    n += await linkManualEntries(limit);
     const rows = db
       .prepare("SELECT * FROM movies WHERE deleted = 0 AND tmdb_id IS NOT NULL AND enriched = 0 LIMIT ?")
       .all(limit) as Record<string, any>[];
@@ -50,6 +51,50 @@ export async function enrichMovies(limit = 40) {
     running = false;
   }
   if (n > 0) broadcastChange("server");
+  return n;
+}
+
+const norm = (t: string) =>
+  t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, " and ").replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Movies typed in by hand (e.g. added offline) have no TMDB link, so no poster or genres.
+ * Look them up by title (+ year if given) and link them when the match is unambiguous;
+ * the normal enrichment then fills in genres, series and age rating.
+ */
+async function linkManualEntries(limit: number): Promise<number> {
+  const rows = db
+    .prepare("SELECT * FROM movies WHERE deleted = 0 AND tmdb_id IS NULL AND enriched = 0 LIMIT ?")
+    .all(limit) as Record<string, any>[];
+  let n = 0;
+  for (const m of rows) {
+    try {
+      const want = norm(m.title);
+      const hits = await searchMovies(cleanTitle(m.title) || m.title, m.year ?? undefined);
+      const exact = hits.filter((h) => norm(h.title) === want && (!m.year || !h.year || Math.abs(h.year - m.year) <= 1));
+      // Without a year, two same-named films (e.g. remakes) are ambiguous: prefer the best-known one only if it's clearly ahead.
+      const pick = exact.length === 1 ? exact[0] : exact.length > 1 && !m.year && (exact[0].votes ?? 0) > 5 * (exact[1].votes ?? 0) ? exact[0] : m.year ? exact[0] : undefined;
+      const taken = pick && db.prepare("SELECT 1 FROM movies WHERE tmdb_id = ? AND deleted = 0 AND id != ?").get(pick.tmdb_id, m.id);
+      if (pick && !taken) {
+        upsertRow("movies", {
+          ...m,
+          tmdb_id: pick.tmdb_id,
+          year: m.year ?? pick.year,
+          poster_path: m.poster_path ?? pick.poster_path,
+          overview: m.overview ?? (pick.overview || null),
+          updated_at: Math.max(Date.now(), m.updated_at + 1),
+          updated_by: "server",
+        });
+        n++; // enriched stays 0, so genres/series/rating are filled in next
+      } else {
+        db.prepare("UPDATE movies SET enriched = 1 WHERE id = ?").run(m.id); // no confident match; don't keep asking
+      }
+    } catch (e: any) {
+      if (e?.status === 503) break;
+      console.warn("link failed for", m.title, e?.message);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
   return n;
 }
 

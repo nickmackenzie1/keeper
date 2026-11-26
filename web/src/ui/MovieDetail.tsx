@@ -1,5 +1,6 @@
 import { Skeleton } from "./Skeleton";
 import { useState } from "preact/hooks";
+import { ChangePoster, FixMatch } from "./MatchFixer";
 import { copiesFor, deleteCopy, deleteMovie, getMovie, saveCopy } from "../lib/db";
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, FORMAT_SHORT, type Copy } from "../lib/types";
 import { Poster } from "./Poster";
@@ -9,6 +10,7 @@ import { Person } from "./Person";
 
 export function MovieDetail({ id }: { id: string }) {
   const data = useData(async () => ({ movie: await getMovie(id), copies: await copiesFor(id) }), [id]);
+  const [fixing, setFixing] = useState<null | "match" | "poster">(null);
   if (!data) return <Skeleton />;
   const { movie, copies } = data;
   if (!movie) {
@@ -40,6 +42,17 @@ export function MovieDetail({ id }: { id: string }) {
           </div>
         </div>
         {movie.overview && <p class="overview">{movie.overview}</p>}
+
+        {!fixing && (
+          <div class="row">
+            <button class="btn small grow" onClick={() => setFixing("match")}>
+              {movie.tmdb_id ? "Wrong movie? Fix match" : "Find the movie"}
+            </button>
+            {movie.tmdb_id && <button class="btn small grow" onClick={() => setFixing("poster")}>Change poster</button>}
+          </div>
+        )}
+        {fixing === "match" && <FixMatch movie={movie} onDone={() => setFixing(null)} />}
+        {fixing === "poster" && <ChangePoster movie={movie} onDone={() => setFixing(null)} />}
 
         <h3>Your copies</h3>
         <ul class="copies">

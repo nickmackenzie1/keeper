@@ -140,6 +140,8 @@ const applyChanges = db.transaction((changes: Record<TableName, Record<string, u
   let accepted = 0;
   let rejected = 0;
   for (const t of NAMES) for (const row of changes[t]) upsertRow(t, row) ? accepted++ : rejected++;
+  // Hand-typed movies (no TMDB link yet) get another lookup attempt after every edit.
+  for (const m of changes.movies) if (m.tmdb_id == null) db.prepare("UPDATE movies SET enriched = 0 WHERE id = ?").run(m.id);
   return { accepted, rejected };
 });
 

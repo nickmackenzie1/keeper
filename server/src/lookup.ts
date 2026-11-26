@@ -129,6 +129,18 @@ lookupRouter.get("/movie/:tmdbId", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/** GET /api/movie/:tmdbId/posters — alternative posters to choose from. */
+lookupRouter.get("/movie/:tmdbId/posters", async (req, res, next) => {
+  try {
+    const data = await tmdb(`/movie/${Number(req.params.tmdbId)}/images`, { include_image_language: "en,null" });
+    const posters = ((data.posters ?? []) as { file_path: string; vote_average: number; iso_639_1: string | null }[])
+      .sort((a, b) => Number(b.iso_639_1 === "en") - Number(a.iso_639_1 === "en") || b.vote_average - a.vote_average)
+      .slice(0, 40)
+      .map((p) => p.file_path);
+    res.json({ posters });
+  } catch (e) { next(e); }
+});
+
 /**
  * GET /api/barcode/:upc — barcode → product title → detected format + TMDB candidates.
  * Used when adding at home; in-store "do we own it?" checks happen offline on the phone

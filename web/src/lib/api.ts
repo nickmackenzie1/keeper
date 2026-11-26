@@ -89,3 +89,5 @@ export const listDevices = () =>
 
 export const diagnostics = () =>
   api<{ tmdb: string; barcode: string; ai: string; version: string }>("/diagnostics", { timeoutMs: 30_000 });
+
+export const moviePosters = (tmdbId: number) => api<{ posters: string[] }>(`/movie/${tmdbId}/posters`).then((r) => r.posters);

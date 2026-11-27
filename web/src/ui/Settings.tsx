@@ -1,3 +1,4 @@
+import { Logo } from "./Logo";
 import { ScreenTitle } from "./Zone";
 import { Skeleton } from "./Skeleton";
 import { useEffect, useState } from "preact/hooks";
@@ -181,7 +182,7 @@ export function Settings() {
 
         {msg && <p class="notice" role="status">{msg}</p>}
         <div class="logo-foot">
-          <img src="/icons/icon.svg" alt="We Have It At Home" width="56" height="56" />
+          <Logo size={110} />
           <p>Department of Already Owning It</p>
         </div>
       </div>

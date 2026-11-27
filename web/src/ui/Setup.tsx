@@ -2,6 +2,7 @@ import { useState } from "preact/hooks";
 import { api, ApiError } from "../lib/api";
 import { setMeta } from "../lib/db";
 import { sync } from "../lib/live";
+import { Logo } from "./Logo";
 
 /** First launch on a phone: name it and enter the access code from the server's .env. */
 export function Setup({ onDone }: { onDone: () => void }) {
@@ -37,30 +38,32 @@ export function Setup({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div class="screen setup">
-      <div class="screen-body">
-        <img class="logo-block" src="/icons/icon.svg" alt="" width="168" height="168" />
-        <h1 class="brand sr-only">We Have It At Home</h1>
-        <p>Your movie collection, in your pocket. Set up this phone once.</p>
-        {!window.isSecureContext && (
-          <p class="notice">
-            You're on a plain <b>http://</b> address. At Home will work, but the camera scanner, offline mode and notifications
-            need the secure address — open <b>https://keeper.mackenzie.house</b> instead, and add that one to your Home Screen.
-          </p>
-        )}
-        <form class="stack gap" onSubmit={submit}>
-          <label class="field">
-            Whose phone is this?
-            <input placeholder="e.g. Nick" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} autoComplete="given-name" />
-          </label>
-          <label class="field">
-            Access code
-            <input type="password" placeholder="From the .env file on the NAS" value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value)} autoComplete="current-password" required />
-          </label>
-          {error && <p class="notice">{error}</p>}
-          <button class="btn primary block" disabled={busy || !code.trim()}>{busy ? "Connecting…" : "Get started"}</button>
-        </form>
-      </div>
+    <div class="setup-v2">
+      <header class="setup-hero">
+        <p class="setup-file">File 0001 · New device</p>
+        <h1 class="sr-only">We Have It At Home</h1>
+        <Logo play class="setup-logo" />
+        <span class="setup-rule" aria-hidden="true" />
+        <p class="setup-tag">Department of Already Owning It. Set this phone up once.</p>
+      </header>
+      {!window.isSecureContext && (
+        <p class="setup-warn">
+          You're on a plain <b>http://</b> address. The camera scanner, offline mode and notifications need the secure one:
+          open <b>https://keeper.mackenzie.house</b> and add that to your Home Screen.
+        </p>
+      )}
+      <form class="setup-form" onSubmit={submit}>
+        <label class="line-field">
+          <span>Whose phone is this</span>
+          <input placeholder="e.g. Nick" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} autoComplete="given-name" />
+        </label>
+        <label class="line-field">
+          <span>Access code</span>
+          <input type="password" placeholder="From the .env file on the NAS" value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value)} autoComplete="current-password" required />
+        </label>
+        {error && <p class="setup-error" role="alert">{error}</p>}
+        <button class="setup-go" disabled={busy || !code.trim()}>{busy ? "Connecting…" : "Get started"}</button>
+      </form>
     </div>
   );
 }

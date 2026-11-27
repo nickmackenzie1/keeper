@@ -17,6 +17,7 @@ export function Add({ query }: { query: URLSearchParams }) {
   const [q, setQ] = useState(query.get("q") ?? "");
   const [results, setResults] = useState<TmdbHit[] | null>(null);
   const [page, setPage] = useState({ n: 1, more: false, loading: false });
+  const [searching, setSearching] = useState(false);
   const [barcode, setBarcode] = useState<string | null>(query.get("barcode"));
   const [format, setFormat] = useState<Format | null>((query.get("format") as Format) || null);
   const [productTitle, setProductTitle] = useState<string | null>(null);
@@ -75,19 +76,28 @@ export function Add({ query }: { query: URLSearchParams }) {
     }
   }
 
+  const searchSeq = useRef(0);
   async function runSearch(text: string) {
     if (!text.trim()) return;
-    setBusy(true);
+    const seq = ++searchSeq.current;
+    // Keep the current results on screen while the next ones load (no flashing "Searching…").
+    if (!results) setBusy(true);
+    setSearching(true);
     setError(null);
     try {
       const r = await searchTmdbPage(text, 1);
+      if (seq !== searchSeq.current) return; // a newer search already started
       setResults(r.results);
       setPage({ n: 1, more: r.more, loading: false });
     } catch (e) {
+      if (seq !== searchSeq.current) return;
       fail(e);
       setResults([]);
     } finally {
-      setBusy(false);
+      if (seq === searchSeq.current) {
+        setBusy(false);
+        setSearching(false);
+      }
     }
   }
 
@@ -122,7 +132,7 @@ export function Add({ query }: { query: URLSearchParams }) {
       setBarcode(null);
       setProductTitle(null);
       void runSearch(q);
-    }, 350);
+    }, 250);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -159,7 +169,7 @@ export function Add({ query }: { query: URLSearchParams }) {
             void runSearch(q);
           }}
         >
-          <label class="search grow">
+          <label class={`search grow ${searching ? "searching" : ""}`}>
             <IconSearch />
             <input type="search" placeholder="Search movie title" aria-label="Search movie title" value={q} onInput={(e) => { typed.current = true; setQ((e.target as HTMLInputElement).value); }} />
           </label>

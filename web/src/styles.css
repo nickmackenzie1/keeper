@@ -798,3 +798,7 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .suggest-row .chip.new { background: var(--good-bg); color: var(--good-fg); }
 .more-btn { margin-top: 10px; }
 [data-skin="marquee"] .more-btn { background: none; border: 1px solid var(--line); font-family: var(--mono); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+/* A thin scanning line under the search field while results load */
+.search { position: relative; }
+.search.searching::after { content: ""; position: absolute; left: 0; bottom: -2px; height: 2px; width: 30%; background: var(--accent); animation: seek 0.9s ease-in-out infinite alternate; }
+@keyframes seek { from { left: 0; } to { left: 70%; } }

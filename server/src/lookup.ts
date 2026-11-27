@@ -80,8 +80,22 @@ export async function searchMovies(query: string, year?: number): Promise<MovieH
   return (await searchMoviesPage(query, year, 1)).results.slice(0, 10);
 }
 
+/** Recent searches, so typing (and retyping) doesn't wait on TMDB every time. */
+const searchCache = new Map<string, { at: number; value: Promise<{ results: MovieHit[]; page: number; more: boolean }> }>();
+
 /** One page (20 results) of a TMDB search, and whether there are more. */
-export async function searchMoviesPage(query: string, year: number | undefined, page: number) {
+export function searchMoviesPage(query: string, year: number | undefined, page: number) {
+  const key = `${query.toLowerCase()}|${year ?? ""}|${page}`;
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.at < 30 * 60_000) return hit.value;
+  const value = fetchSearchPage(query, year, page);
+  searchCache.set(key, { at: Date.now(), value });
+  value.catch(() => searchCache.delete(key)); // never cache a failure
+  if (searchCache.size > 500) searchCache.delete(searchCache.keys().next().value!);
+  return value;
+}
+
+async function fetchSearchPage(query: string, year: number | undefined, page: number) {
   const params: Record<string, string> = { query, include_adult: "false", page: String(page) };
   if (year) params.year = String(year);
   const data = await tmdb("/search/movie", params);

@@ -314,9 +314,10 @@ export function Check() {
 
   // Suggestions from the movie database as you type (online only; quietly skipped offline).
   useEffect(() => {
-    setSuggest([]);
-    setSugPage({ page: 1, more: false, loading: false });
-    if (q.trim().length < 2) return;
+    if (q.trim().length < 2) {
+      setSuggest([]);
+      return;
+    }
     let alive = true;
     const t = setTimeout(() => {
       searchTmdbPage(q.trim(), 1)
@@ -326,7 +327,7 @@ export function Check() {
           setSugPage({ page: 1, more: r.more, loading: false });
         })
         .catch(() => {});
-    }, 300);
+    }, 220);
     return () => {
       alive = false;
       clearTimeout(t);

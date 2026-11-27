@@ -63,8 +63,19 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
 export const searchTmdb = (q: string) => searchTmdbPage(q, 1).then((r) => r.results);
 
 /** One page of movie-database results; `more` = there's another page. */
-export const searchTmdbPage = (q: string, page: number) =>
-  api<{ results: TmdbHit[]; more?: boolean }>(`/search?q=${encodeURIComponent(q)}&page=${page}`).then((r) => ({ results: r.results, more: !!r.more }));
+const searchMemo = new Map<string, Promise<{ results: TmdbHit[]; more: boolean }>>();
+export const searchTmdbPage = (q: string, page: number) => {
+  const key = `${q.trim().toLowerCase()}|${page}`;
+  let p = searchMemo.get(key);
+  if (!p) {
+    p = api<{ results: TmdbHit[]; more?: boolean }>(`/search?q=${encodeURIComponent(q.trim())}&page=${page}`, { timeoutMs: 12_000 })
+      .then((r) => ({ results: r.results, more: !!r.more }));
+    searchMemo.set(key, p);
+    p.catch(() => searchMemo.delete(key));
+    if (searchMemo.size > 200) searchMemo.delete(searchMemo.keys().next().value!);
+  }
+  return p;
+};
 
 export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | null }>(`/movie/${id}`);
 

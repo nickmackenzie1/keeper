@@ -72,6 +72,12 @@ export function paletteFromPixels(data: Buffer, channels: number): Palette {
   return { bg, accent };
 }
 
+/** Colours already worked out for this poster, without fetching anything. */
+export function cachedColors(posterPath: string | null | undefined): Palette | null {
+  if (!posterPath) return null;
+  return (db.prepare("SELECT bg, accent FROM poster_colors WHERE poster_path = ?").get(posterPath) as Palette | undefined) ?? null;
+}
+
 export async function posterColors(posterPath: string | null | undefined): Promise<Palette | null> {
   if (!posterPath) return null;
   return imageColors(posterPath, `${config.tmdbImageBase}/w92${posterPath}`, 24, 36);

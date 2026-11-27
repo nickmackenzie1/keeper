@@ -2,7 +2,7 @@ import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
 import { sight } from "./sightings.js";
-import { posterColors } from "./colors.js";
+import { cachedColors, posterColors } from "./colors.js";
 import { recordBarcodeAnswer } from "./discogs.js";
 
 const TMDB = config.tmdbBase;
@@ -185,15 +185,22 @@ lookupRouter.get("/barcode/:upc", async (req, res, next) => {
   try {
     const upc = req.params.upc.replace(/\D/g, "");
     if (upc.length < 8) { res.status(400).json({ error: "invalid barcode" }); return; }
-    // Records first: Discogs only knows music, so a hit there means it's an album.
-    const record = await recordBarcodeAnswer(upc, req.query.store === "1");
+    // Ask Discogs (records) and the product database (movies) at the same time, so a movie
+    // scan never waits on Discogs first. Discogs only knows music, so a hit there means an album.
+    const [record, product] = await Promise.all([
+      recordBarcodeAnswer(upc, req.query.store === "1"),
+      upcLookup(upc).catch((e) => { if (e?.status === 429) throw e; console.warn("UPC lookup:", e?.message); return null; }),
+    ]);
     if (record) { res.json(record); return; }
-    const product = await upcLookup(upc);
     if (!product) { res.json({ kind: "movie", barcode: upc, product_title: null, format: null, candidates: [] }); return; }
     const title = cleanTitle(product.title);
     const candidates: (Awaited<ReturnType<typeof searchMovies>>[number] & { palette?: unknown })[] = title ? await searchMovies(title) : [];
-    // The reveal screen uses the top match's poster colours.
-    if (candidates[0]) candidates[0].palette = await posterColors(candidates[0].poster_path);
+    // The reveal uses the top match's poster colours: only if already known. Never wait on the image here;
+    // it's worked out in the background and arrives with the next sync.
+    if (candidates[0]) {
+      candidates[0].palette = cachedColors(candidates[0].poster_path);
+      if (!candidates[0].palette) void posterColors(candidates[0].poster_path);
+    }
     // Log that we saw this in a store; tells the phone if it's a rare find for you.
     // Only scans from the store screens (?store=1) count — not adding discs at home.
     const rarity = candidates[0] && req.query.store === "1" ? sight(candidates[0].tmdb_id, candidates[0].title, "barcode") : null;

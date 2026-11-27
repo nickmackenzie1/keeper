@@ -1,6 +1,6 @@
 import { uuid } from "./uuid";
 import { tmdbDetails } from "./api";
-import { copiesFor, getMeta, markHuntsFound, movieByTmdb, saveCopy, saveMovie } from "./db";
+import { copiesFor, getMeta, getMovie, markHuntsFound, movieByTmdb, saveCopy, saveMovie } from "./db";
 import { FORMAT_RANK, type Copy, type Format, type Movie, type TmdbHit } from "./types";
 
 export interface AddDiscInput {
@@ -22,9 +22,12 @@ export interface AddDiscInput {
 export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy: Copy }> {
   let movie = input.movie ?? (input.tmdb ? await movieByTmdb(input.tmdb.tmdb_id) : undefined);
 
+  let fillIn = false;
   if (!movie) {
-    let d: Partial<TmdbHit> = input.tmdb ?? {};
-    if (input.tmdb && d.genres === undefined) d = await tmdbDetails(input.tmdb.tmdb_id).catch(() => input.tmdb!);
+    // Save straight away with what we already know; the rest (runtime, genres, series, age rating)
+    // is filled in afterwards in the background, so adding never waits on the internet.
+    const d: Partial<TmdbHit> = input.tmdb ?? {};
+    fillIn = !!input.tmdb && d.genres === undefined;
     movie = await saveMovie({
       id: uuid(),
       tmdb_id: input.tmdb?.tmdb_id ?? null,
@@ -68,5 +71,31 @@ export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy
   });
 
   await markHuntsFound(movie.tmdb_id, movie.title);
+  if (fillIn && input.tmdb) void fillInDetails(movie.id, input.tmdb.tmdb_id);
   return { movie, copy };
+}
+
+/** After an add: fetch the full details and update the movie (only the gaps; never overwrites edits). */
+async function fillInDetails(movieId: string, tmdbId: number) {
+  try {
+    const d = await tmdbDetails(tmdbId);
+    const m = await getMovie(movieId);
+    if (!m || m.tmdb_id !== tmdbId) return;
+    const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = m;
+    await saveMovie({
+      ...rest,
+      poster_path: rest.poster_path ?? d.poster_path ?? null,
+      overview: rest.overview ?? d.overview ?? null,
+      runtime: rest.runtime ?? d.runtime ?? null,
+      genres: rest.genres ?? d.genres ?? null,
+      collection_id: rest.collection_id ?? d.collection_id ?? null,
+      collection_name: rest.collection_name ?? d.collection_name ?? null,
+      certification: rest.certification ?? d.certification ?? null,
+      poster_bg: rest.poster_bg ?? d.palette?.bg ?? null,
+      poster_accent: rest.poster_accent ?? d.palette?.accent ?? null,
+      palette_for: rest.palette_for ?? (d.palette ? d.poster_path ?? null : null),
+    });
+  } catch {
+    /* offline: the server fills these in after the next sync */
+  }
 }

@@ -18,6 +18,7 @@ import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
 import { IconCamera, IconScan, IconSearch, IconShelfPhoto, IconStack } from "./icons";
 import { SyncPill } from "./SyncPill";
+import { allScans, onScans, queueScan, type Scan } from "../lib/scans";
 
 const HEADLINE: Record<Verdict["kind"], string> = {
   not_owned: "Not in your collection",
@@ -146,6 +147,70 @@ function VerdictReveal({ v, onNext, onClose }: { v: Verdict; onNext: () => void;
   );
 }
 
+const WORD_OF: Record<string, string> = { not_owned: "Grab it", upgrade: "Upgrade", have: "Got it", owned: "You own it", hunt: "Found it", unknown: "No match" };
+const kindOf = (v: Verdict) => (v.unknown ? "unknown" : v.hunt ? "hunt" : v.kind);
+
+/** Marquee: the scan is on screen at once, while the answer is fetched. Keep scanning any time. */
+function PendingReveal({ scan, onNext, onClose }: { scan: Scan; onNext: () => void; onClose: () => void }) {
+  return (
+    <div class="reveal reveal-pending" role="dialog" aria-label="Checking">
+      <div class="reveal-bg" aria-hidden="true" style={{ background: "#050505" }}>
+        <span class="pending-sweep" />
+      </div>
+      <button class="reveal-close icon-btn" aria-label="Close" onClick={onClose}>×</button>
+      <div class="reveal-center" aria-live="polite">
+        <ZoneTitle size="reveal" play kicker={scan.error ? "Couldn't check" : scan.label === "Cover photo" ? "Reading the cover" : `Barcode ${scan.label}`} title={scan.error ? "Offline" : "Checking"} sub={scan.error ?? "Keep scanning. This one will land on your list."} fontSize="min(96px, 21vw)" />
+      </div>
+      <div class="reveal-panel">
+        <div class="row">
+          <button class="btn primary grow" onClick={onNext}>Scan next</button>
+          <button class="btn" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PendingCard({ scan, onNext }: { scan: Scan; onNext: () => void }) {
+  return (
+    <section class="verdict verdict-pending" aria-live="polite">
+      <span class="eyebrow">{scan.label === "Cover photo" ? "Cover photo" : `Barcode ${scan.label}`}</span>
+      <h2 class="verdict-title">{scan.error ? "Couldn't check" : "Checking…"}</h2>
+      <p class="verdict-sub">{scan.error ?? "Keep scanning. This one will land in your list below."}</p>
+      <div class="row"><button class="btn primary grow" onClick={onNext}>Scan next</button></div>
+    </section>
+  );
+}
+
+/** This trip's scans, newest first. Each card fills in as its answer lands. */
+function ScanTray({ scans, onOpen }: { scans: Scan[]; onOpen: (id: string) => void }) {
+  return (
+    <section class="scan-tray" aria-label="Recent scans">
+      <h3 class="suggest-head">This trip</h3>
+      <ul class="list">
+        {scans.slice(0, 12).map((s) => {
+          const v = s.verdict;
+          const cand = v?.lookup?.candidates?.[0];
+          const disp = v?.movie ?? (cand ? { title: cand.title, year: cand.year, poster_path: cand.poster_path } : null);
+          const k = v ? kindOf(v) : s.error ? "error" : "pending";
+          return (
+            <li key={s.id} class={`scan-row scan-${k}`}>
+              <button class="list-row" onClick={() => onOpen(s.id)}>
+                {disp ? <Poster movie={disp} size="w185" class="thumb" /> : <span class="thumb scan-ghost" aria-hidden="true" />}
+                <span class="stack grow">
+                  <b>{disp?.title ?? (s.error ? "Couldn't check" : s.label === "Cover photo" ? "Reading the cover…" : "Checking…")}</b>
+                  <span class="muted">{disp?.year ?? (s.label === "Cover photo" ? "Cover photo" : s.label)}</span>
+                </span>
+                <span class="scan-word">{v ? WORD_OF[k] : s.error ? "Retry later" : ""}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export function VerdictCard({ v, onNext }: { v: Verdict; onNext: () => void }) {
   const cand = v.lookup?.candidates[0];
   const display = v.movie ?? (cand ? { title: cand.title, year: cand.year, poster_path: cand.poster_path } : null);
@@ -270,7 +335,6 @@ function Hello() {
 
 export function Check() {
   const [scanning, setScanning] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Movie[] | null>(null);
@@ -282,26 +346,34 @@ export function Check() {
   const [error, setError] = useState<string | null>(null);
   const coverInput = useRef<HTMLInputElement>(null);
 
-  const onCover = async (file?: File) => {
+  // Scans and cover photos run in the background: the card shows up at once and fills in.
+  const [scans, setScans] = useState<Scan[]>(allScans());
+  useEffect(() => onScans(() => setScans(allScans())), []);
+  const [openScan, setOpenScan] = useState<string | null>(null);
+  const opened = scans.find((x) => x.id === openScan) ?? null;
+
+  const onCover = (file?: File) => {
     if (!file) return;
     setError(null);
     setVerdict(null);
     setQ("");
-    setBusy(true);
-    try {
-      const { b64 } = await preparePhoto(file, 1400);
-      const v = await verdictForCover(await coverScan(b64, true));
-      setVerdict(v);
-      if (v.hunt) celebrate();
-    } catch (e) {
-      setError(
-        e instanceof ApiError && e.kind === "offline"
-          ? "Cover photos need a connection. Try the barcode — that works offline for discs you own."
-          : e instanceof Error ? e.message : "Couldn't read that photo.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    const id = queueScan(
+      "Cover photo",
+      async () => {
+        const { b64 } = await preparePhoto(file, 1400);
+        try {
+          return await verdictForCover(await coverScan(b64, true));
+        } catch (e) {
+          throw new Error(
+            e instanceof ApiError && e.kind === "offline"
+              ? "Cover photos need a connection. The barcode works offline for discs you own."
+              : e instanceof Error ? e.message : "Couldn't read that photo.",
+          );
+        }
+      },
+      (v) => v.hunt && celebrate(),
+    );
+    setOpenScan(id);
   };
 
   useEffect(() => {
@@ -361,17 +433,12 @@ export function Check() {
   const ownedIds = new Set((results ?? []).map((m) => m.tmdb_id));
   const fresh = suggest.filter((h) => !ownedIds.has(h.tmdb_id));
 
-  const onCode = async (code: string) => {
+  const onCode = (code: string) => {
     setScanning(false);
-    setBusy(true);
     setQ("");
-    try {
-      const v = await verdictForBarcode(code, { store: true });
-      setVerdict(v);
-      if (v.hunt) celebrate();
-    } finally {
-      setBusy(false);
-    }
+    setVerdict(null);
+    const id = queueScan(code, () => verdictForBarcode(code, { store: true }), (v) => v.hunt && celebrate());
+    setOpenScan(id);
   };
 
   const startScan = () => {
@@ -380,8 +447,17 @@ export function Check() {
   };
   const next = () => {
     setVerdict(null);
+    setOpenScan(null);
     startScan();
   };
+  const closeShown = () => {
+    setVerdict(null);
+    setOpenScan(null);
+  };
+  // What's on screen: a verdict you picked directly, or the scan you're looking at (maybe still checking).
+  const shown: Verdict | null = verdict ?? opened?.verdict ?? null;
+  const pending = !verdict && opened && !opened.verdict ? opened : null;
+  const busy = false;
 
   return (
     <div class="screen">
@@ -410,23 +486,23 @@ export function Check() {
           <button class="btn primary icon-btn" aria-label="Scan a barcode" onClick={startScan}>
             <IconScan />
           </button>
-          <input ref={coverInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { void onCover((e.target as HTMLInputElement).files?.[0]); (e.target as HTMLInputElement).value = ""; }} />
+          <input ref={coverInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { onCover((e.target as HTMLInputElement).files?.[0]); (e.target as HTMLInputElement).value = ""; }} />
         </div>
       </header>
 
       <div class="screen-body">
-        {busy && <p class="muted center">Looking it up…</p>}
-        {error && !busy && <p class="notice">{error}</p>}
-        {verdict && !busy && currentSkin() !== "marquee" && <VerdictCard v={verdict} onNext={next} />}
+        {error && <p class="notice">{error}</p>}
+        {pending && currentSkin() !== "marquee" && <PendingCard scan={pending} onNext={next} />}
+        {shown && currentSkin() !== "marquee" && <VerdictCard v={shown} onNext={next} />}
 
-        {!verdict && !busy && results && hunts.map((h) => (
+        {!shown && !pending && results && hunts.map((h) => (
           <div key={h.id} class="hunt-banner standalone">
             <b>“{h.title}” is on your hunt list!</b>
             <span>{h.added_by ? `${h.added_by} is looking for it` : "Grab it if you see it"}{h.notes ? ` · ${h.notes}` : ""}</span>
           </div>
         ))}
 
-        {!verdict && !busy && results && (
+        {!shown && !pending && results && (
           results.length ? (
             <ul class="list">{results.map((m) => <ResultRow key={m.id} m={m} />)}</ul>
           ) : (
@@ -440,7 +516,7 @@ export function Check() {
           )
         )}
 
-        {!verdict && !busy && results && fresh.length > 0 && (
+        {!shown && !pending && results && fresh.length > 0 && (
           <>
             <h3 class="suggest-head">{results.length ? "Not on your shelf" : "Did you mean"}</h3>
             <ul class="list">
@@ -465,9 +541,10 @@ export function Check() {
           </>
         )}
 
-        {!verdict && !busy && !results && (
+        {!shown && !pending && !results && (
           <>
             <Hello />
+            {scans.length > 0 && <ScanTray scans={scans} onOpen={setOpenScan} />}
             <button class="hero-scan" onClick={startScan}>
               <IconScan />
               <span class="hero-scan-title">Scan a disc</span>
@@ -501,7 +578,8 @@ export function Check() {
         )}
       </div>
 
-      {verdict && !busy && currentSkin() === "marquee" && <VerdictReveal v={verdict} onNext={next} onClose={() => setVerdict(null)} />}
+      {pending && currentSkin() === "marquee" && <PendingReveal scan={pending} onNext={next} onClose={closeShown} />}
+      {shown && currentSkin() === "marquee" && <VerdictReveal key={opened?.id ?? "direct"} v={shown} onNext={next} onClose={closeShown} />}
       {scanning && <Scanner onCode={onCode} onClose={() => setScanning(false)} />}
       {haul && <Haul onClose={() => setHaul(false)} />}
       {shelf && <ShelfScan onClose={() => setShelf(false)} />}

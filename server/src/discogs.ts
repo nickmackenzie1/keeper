@@ -2,7 +2,7 @@ import { Router } from "express";
 import { config } from "./config.js";
 import { db } from "./db.js";
 import { outbound } from "./lookup.js";
-import { coverColors } from "./colors.js";
+import { cachedColors, coverColors } from "./colors.js";
 import { sight } from "./sightings.js";
 
 /**
@@ -224,7 +224,8 @@ export async function recordBarcodeAnswer(barcode: string, store: boolean) {
     return null;
   });
   if (!found) return null;
-  const palette = await coverColors(found.album.cover_url);
+  const palette = cachedColors(found.album.cover_url);
+  if (!palette) void coverColors(found.album.cover_url);
   const rarity = store ? sight(sightKey(found.album), [found.album.artist, found.album.title].filter(Boolean).join(" – "), "barcode") : null;
   return { kind: "album" as const, barcode, album: { ...found.album, palette }, pressing: found.pressing, rarity };
 }

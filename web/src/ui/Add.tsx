@@ -4,6 +4,7 @@ import { ApiError, coverScan, lookupBarcode, searchTmdbPage, tmdbDetails } from 
 import { preparePhoto } from "../lib/photo";
 import { allCopies, copiesFor, getMovie, movieByTmdb } from "../lib/db";
 import { addDisc } from "../lib/collection";
+import { knownHit } from "../lib/hits";
 import { FORMATS, FORMAT_LABEL, isUpgradeOver, type Format, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
@@ -38,6 +39,8 @@ export function Add({ query }: { query: URLSearchParams }) {
       if (tmdb) {
         const local = await movieByTmdb(tmdb);
         if (local) return setPick({ movie: local });
+        const seen = knownHit(tmdb); // seen in a search or scan: open at once, no waiting
+        if (seen) return setPick({ tmdb: seen });
         try {
           return setPick({ tmdb: await tmdbDetails(tmdb) });
         } catch {

@@ -46,6 +46,7 @@ export function MovieDetail({ id }: { id: string }) {
           </div>
         </div>
         {movie.overview && <p class="overview">{movie.overview}</p>}
+        {!movie.overview && movie.tmdb_id && !movie.genres && <p class="overview filling">Filling in the details…</p>}
 
         {!fixing && (
           <div class="row">

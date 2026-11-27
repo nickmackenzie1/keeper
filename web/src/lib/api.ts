@@ -1,4 +1,5 @@
 import { getMeta } from "./db";
+import { rememberHits } from "./hits";
 import type { BarcodeLookup, Series, ShelfSpine, TmdbHit } from "./types";
 
 export class ApiError extends Error {
@@ -69,7 +70,7 @@ export const searchTmdbPage = (q: string, page: number) => {
   let p = searchMemo.get(key);
   if (!p) {
     p = api<{ results: TmdbHit[]; more?: boolean }>(`/search?q=${encodeURIComponent(q.trim())}&page=${page}`, { timeoutMs: 12_000 })
-      .then((r) => ({ results: r.results, more: !!r.more }));
+      .then((r) => { rememberHits(r.results); return { results: r.results, more: !!r.more }; });
     searchMemo.set(key, p);
     p.catch(() => searchMemo.delete(key));
     if (searchMemo.size > 200) searchMemo.delete(searchMemo.keys().next().value!);
@@ -83,7 +84,7 @@ export const fetchSeries = () => api<{ series: Series[] }>("/series").then((r) =
 
 /** `store`: this scan happened in a store, so log it for rarity tracking. */
 export const lookupBarcode = (upc: string, store = false) =>
-  api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}${store ? "?store=1" : ""}`);
+  api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}${store ? "?store=1" : ""}`).then((r) => { rememberHits(r.candidates); return r; });
 
 export const shelfScan = (imageB64: string) =>
   api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg" }) }).then((r) => r.spines);

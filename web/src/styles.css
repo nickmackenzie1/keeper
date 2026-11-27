@@ -804,24 +804,24 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 @keyframes seek { from { left: 0; } to { left: 70%; } }
 
 /* ---- Marquee, v1.0: black and white. Red is a signal, never a fill. ----
-   Red (#a259ff, 5.6:1 on black) only marks things: the active tab, the search label, the 4K tag,
+   Red (#c3a0ff, 5.6:1 on black) only marks things: the active tab, the search label, the 4K tag,
    upgrades, problems — and the full stop in the logo. Buttons are white blocks with black type. */
 [data-skin="marquee"] {
-  --accent: #a259ff; --on-accent: #050505;
+  --accent: #c3a0ff; --on-accent: #050505;
   --chip-dvd-bg: transparent; --chip-dvd-fg: rgba(255, 255, 255, 0.85);
   --chip-bd-bg: #ffffff; --chip-bd-fg: #050505;
-  --chip-4k-bg: #050505; --chip-4k-fg: #a259ff;
-  --upgrade-bg: transparent; --upgrade-fg: #a259ff;
+  --chip-4k-bg: #050505; --chip-4k-fg: #c3a0ff;
+  --upgrade-bg: transparent; --upgrade-fg: #c3a0ff;
   --good-bg: #ffffff; --good-fg: #050505;
   --have-bg: #ffffff; --have-fg: #050505;
 }
 [data-skin="marquee"] .chip { border-radius: 1px; font-family: var(--mono); font-weight: 500; letter-spacing: 1px; }
 [data-skin="marquee"] .chip[data-format="dvd"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
-[data-skin="marquee"] .chip[data-format="uhd"] { box-shadow: inset 0 0 0 1px #a259ff; }
+[data-skin="marquee"] .chip[data-format="uhd"] { box-shadow: inset 0 0 0 1px #c3a0ff; }
 [data-skin="marquee"] .btn.primary,
 [data-skin="marquee"] .screen-head > .row:has(.search) .btn.primary { background: #fff; border-color: #fff; color: #050505; }
 [data-skin="marquee"] .hero-scan svg, [data-skin="marquee"] .start-tile svg { color: #fff; }
-[data-skin="marquee"] .reveal-upgrade { --rv: #a259ff; }
+[data-skin="marquee"] .reveal-upgrade { --rv: #c3a0ff; }
 [data-skin="marquee"] .reveal-not_owned, [data-skin="marquee"] .reveal-hunt, [data-skin="marquee"] .reveal-have, [data-skin="marquee"] .reveal-unknown { --rv: #ffffff; }
 [data-skin="marquee"] .reveal .btn.primary { color: #0a0a0a; }
 [data-skin="marquee"] .sync-ok .dot { background: #fff; }
@@ -853,7 +853,7 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   max-width: 560px; margin: 0 auto; font-family: "Inter Tight", Inter, system-ui, sans-serif;
 }
 .setup-hero { display: flex; flex-direction: column; gap: 18px; }
-.setup-file, .line-field span { margin: 0; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: #a259ff; }
+.setup-file, .line-field span { margin: 0; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: #c3a0ff; }
 .setup-file { animation: zk 0.5s ease-out both; }
 .setup-logo { width: min(64vw, 260px); height: auto; }
 .setup-rule { display: block; height: 2px; background: #fff; transform-origin: left; animation: zr 0.5s ease-out 0.75s both; }
@@ -862,7 +862,7 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .line-field { display: flex; flex-direction: column; gap: 8px; }
 .line-field input {
   height: 48px; padding: 0 2px; border: 0; border-bottom: 2px solid rgba(255, 255, 255, 0.3); border-radius: 0;
-  background: transparent; color: #fff; font: 500 20px/1 "Inter Tight", Inter, sans-serif; caret-color: #a259ff; outline: 0; transition: border-color 0.2s;
+  background: transparent; color: #fff; font: 500 20px/1 "Inter Tight", Inter, sans-serif; caret-color: #c3a0ff; outline: 0; transition: border-color 0.2s;
 }
 .line-field input:focus { border-bottom-color: #fff; }
 .line-field input::placeholder { color: rgba(255, 255, 255, 0.38); font-weight: 400; }
@@ -872,14 +872,14 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 .setup-go:active { transform: scale(0.98); }
 .setup-go:disabled { opacity: 0.35; }
-.setup-error { margin: 0; padding: 12px 0 0; border-top: 2px solid #a259ff; color: #fff; font-size: 15px; }
+.setup-error { margin: 0; padding: 12px 0 0; border-top: 2px solid #c3a0ff; color: #fff; font-size: 15px; }
 .setup-warn { margin: 0; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.25); font-size: 14px; line-height: 1.45; color: rgba(255, 255, 255, 0.8); }
 @media (prefers-reduced-motion: reduce) {
   .logo-play .logo-book, .logo-play .logo-gap, .setup-v2 * { animation: none !important; }
 }
 
 /* ---- Scans in the background ---- */
-.pending-sweep { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent, #a259ff); box-shadow: 0 0 24px 4px rgba(162, 89, 255, 0.35); animation: sweep 1.6s ease-in-out infinite alternate; }
+.pending-sweep { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent, #c3a0ff); box-shadow: 0 0 24px 4px rgba(195, 160, 255, 0.35); animation: sweep 1.6s ease-in-out infinite alternate; }
 @keyframes sweep { from { top: 18%; } to { top: 82%; } }
 .reveal-pending .zone-title, .reveal-pending .zone-rule { color: #fff; }
 .reveal-pending .zone-title { animation: zt 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both, breathe 1.4s ease-in-out 0.6s infinite alternate; }
@@ -898,3 +898,5 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .overview.filling { color: var(--muted); animation: breathe 1.1s ease-in-out infinite alternate; }
 [data-skin="marquee"] .seg button { border-radius: 2px; }
 [data-skin="marquee"] .seg button.on { background: #fff; color: #050505; border-color: #fff; }
+/* Small mono labels: a touch bigger and bolder so the purple reads easily */
+[data-skin="marquee"] .search::before, [data-skin="marquee"] .suggest-head, .setup-file, .line-field span { font-size: 12px; font-weight: 600; }

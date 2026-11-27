@@ -57,7 +57,7 @@ export function Add({ query }: { query: URLSearchParams }) {
       e instanceof ApiError && e.kind === "offline"
         ? "No connection to the server right now. You can still add it by title below and it'll sync later."
         : e instanceof ApiError && e.kind === "login_required"
-          ? "Your sign-in expired. Reopen At Home to sign in again."
+          ? "Your sign-in expired. Reopen Library to sign in again."
           : e instanceof Error ? e.message : "Something went wrong",
     );
 

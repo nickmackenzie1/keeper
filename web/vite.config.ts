@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectManifest: { globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"] },
       manifest: {
-        name: "We Have It At Home",
-        short_name: "We Have It At Home",
+        name: "Library",
+        short_name: "Library",
         description: "Our DVD & Blu-ray collection — check before you buy.",
         start_url: "/#/check",
         scope: "/",

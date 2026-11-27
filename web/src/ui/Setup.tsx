@@ -41,8 +41,9 @@ export function Setup({ onDone }: { onDone: () => void }) {
     <div class="setup-v2">
       <header class="setup-hero">
         <p class="setup-file">File 0001 · New device</p>
-        <h1 class="sr-only">We Have It At Home</h1>
+        <h1 class="sr-only">Library</h1>
         <Logo play class="setup-logo" />
+        <p class="setup-word" aria-hidden="true">Library</p>
         <span class="setup-rule" aria-hidden="true" />
         <p class="setup-tag">Department of Already Owning It. Set this phone up once.</p>
       </header>

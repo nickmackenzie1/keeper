@@ -40,7 +40,7 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
   }
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
-    // Not At Home answering: either Cloudflare's login page, or Cloudflare saying the
+    // Not Library answering: either Cloudflare's login page, or Cloudflare saying the
     // server is down (e.g. restarting after an auto-update). Tell those apart.
     const text = await res.text().catch(() => "");
     if (/cloudflareaccess\.com|cf-access|Cloudflare Access|Sign in ・ Cloudflare/i.test(text) || res.status === 403) {

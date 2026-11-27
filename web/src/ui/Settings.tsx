@@ -70,7 +70,7 @@ export function Settings() {
             onClick={async () => {
               setMsg("Syncing…");
               const r = await sync();
-              setMsg(r.ok ? `Synced${r.full ? " (full refresh)" : ""}.` : r.error === "login_required" ? "Sign-in expired — reopen At Home." : "Couldn't reach the server. Your offline copy is still here.");
+              setMsg(r.ok ? `Synced${r.full ? " (full refresh)" : ""}.` : r.error === "login_required" ? "Sign-in expired — reopen Library." : "Couldn't reach the server. Your offline copy is still here.");
             }}
           >
             Sync now
@@ -91,7 +91,7 @@ export function Settings() {
           <h3>Background updates</h3>
           {!isInstalled() ? (
             <p>
-              Add At Home to your Home Screen first: tap <b>Share</b> → <b>Add to Home Screen</b>, then open it from there. iPhones only allow
+              Add Library to your Home Screen first: tap <b>Share</b> → <b>Add to Home Screen</b>, then open it from there. iPhones only allow
               background updates for home-screen apps.
             </p>
           ) : !pushSupported() ? (
@@ -100,7 +100,7 @@ export function Settings() {
             <>
               <p>
                 When the other phone adds discs, you'll get one short notification and your copy updates in the background — even if you
-                don't open At Home.
+                don't open Library.
               </p>
               {pushOn ? (
                 <div class="row">
@@ -113,7 +113,7 @@ export function Settings() {
                   onClick={async () => {
                     const r = await enablePush().catch(() => "unsupported" as const);
                     setPushOn(r === "on");
-                    setMsg(r === "denied" ? "Notifications are blocked. Allow them in iPhone Settings › Notifications › At Home." : r === "on" ? "Background updates are on." : "Couldn't turn on notifications.");
+                    setMsg(r === "denied" ? "Notifications are blocked. Allow them in iPhone Settings › Notifications › Library." : r === "on" ? "Background updates are on." : "Couldn't turn on notifications.");
                   }}
                 >
                   Turn on background updates
@@ -182,7 +182,8 @@ export function Settings() {
 
         {msg && <p class="notice" role="status">{msg}</p>}
         <div class="logo-foot">
-          <Logo size={110} />
+          <Logo size={90} />
+          <b class="foot-word">Library</b>
           <p>Department of Already Owning It</p>
         </div>
       </div>

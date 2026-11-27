@@ -63,7 +63,7 @@ function digestText(sub: Sub): { title: string; body: string } | null {
     .get(sub.last_push_seq, sub.device_id, sub.last_push_seq, sub.device_id) as { n: number };
 
   if (added.length === 0 && other.n === 0) return null;
-  if (added.length === 0) return { title: "At Home", body: "The collection was updated. You're synced." };
+  if (added.length === 0) return { title: "Library", body: "The collection was updated. You're synced." };
 
   const who = added[0].name ?? "Someone";
   const titles = [...new Set(added.map((a) => a.title))];
@@ -141,6 +141,6 @@ pushRouter.post("/push/test", async (req, res) => {
   const deviceId = String(req.body?.device_id ?? "");
   const subs = db.prepare("SELECT * FROM push_subs WHERE device_id = ?").all(deviceId) as Sub[];
   let sent = 0;
-  for (const s of subs) if (await sendTo(s, { title: "At Home", body: "Notifications work. Your collection will stay up to date.", tag: "keeper-test", sync: true })) sent++;
+  for (const s of subs) if (await sendTo(s, { title: "Library", body: "Notifications work. Your collection will stay up to date.", tag: "keeper-test", sync: true })) sent++;
   res.json({ sent });
 });

@@ -16,7 +16,19 @@ getMeta("theme").then((s) => {
   applySkin(((s as Skin | undefined) ?? (local as Skin | null) ?? DEFAULT_SKIN) as Skin);
 });
 
-// New versions install in the background and take over on next launch.
-registerSW({ immediate: true });
+// New versions download in the background, but never reload the page while you're using it
+// (that used to throw you out of the add screen mid-way). The switch happens the next time
+// the app goes into the background, so you come back to the new version where you left off.
+let updateReady = false;
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    updateReady = true;
+    if (document.visibilityState === "hidden") void updateSW(true);
+  },
+});
+document.addEventListener("visibilitychange", () => {
+  if (updateReady && document.visibilityState === "hidden") void updateSW(true);
+});
 
 render(<App />, document.getElementById("app")!);

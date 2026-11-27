@@ -124,6 +124,18 @@ export function AddRecord({ query }: { query: URLSearchParams }) {
     }
   }
 
+  useEffect(() => {
+    if (!pick) return;
+    const q = new URLSearchParams();
+    if (pick.album) q.set("album", pick.album.id);
+    else if (pick.pressing?.discogs_release_id) q.set("release", String(pick.pressing.discogs_release_id));
+    else if (pick.hit?.discogs_master_id) q.set("master", String(pick.hit.discogs_master_id));
+    else return;
+    if (barcode) q.set("barcode", barcode);
+    if (format) q.set("format", format);
+    history.replaceState(null, "", `#/add-record?${q}`);
+  }, [pick]);
+
   if (pick) return <RecordForm pick={pick} barcode={barcode} initialFormat={format} onBack={() => setPick(null)} />;
 
   return (

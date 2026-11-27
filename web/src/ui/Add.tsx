@@ -156,6 +156,18 @@ export function Add({ query }: { query: URLSearchParams }) {
     setPick(local ? { movie: local } : { tmdb: hit });
   };
 
+  // Remember the pick in the address, so if iOS reloads the page (after the camera, say) you land back on the form.
+  useEffect(() => {
+    if (!pick) return;
+    const q = new URLSearchParams();
+    if (pick.movie) q.set("movie", pick.movie.id);
+    else if (pick.tmdb) q.set("tmdb", String(pick.tmdb.tmdb_id));
+    else return;
+    if (barcode) q.set("barcode", barcode);
+    if (format) q.set("format", format);
+    history.replaceState(null, "", `#/add?${q}`);
+  }, [pick]);
+
   if (pick) {
     return <AddForm pick={pick} barcode={barcode} initialFormat={format} onBack={() => setPick(null)} />;
   }

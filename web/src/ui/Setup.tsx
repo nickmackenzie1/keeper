@@ -39,7 +39,8 @@ export function Setup({ onDone }: { onDone: () => void }) {
   return (
     <div class="screen setup">
       <div class="screen-body">
-        <h1 class="brand">We Have It At Home</h1>
+        <img class="logo-block" src="/icons/icon.svg" alt="" width="168" height="168" />
+        <h1 class="brand sr-only">We Have It At Home</h1>
         <p>Your movie collection, in your pocket. Set up this phone once.</p>
         {!window.isSecureContext && (
           <p class="notice">

@@ -180,7 +180,10 @@ export function Settings() {
         </section>
 
         {msg && <p class="notice" role="status">{msg}</p>}
-        <p class="muted center">We Have It At Home · Department of Already Owning It</p>
+        <div class="logo-foot">
+          <img src="/icons/icon.svg" alt="We Have It At Home" width="56" height="56" />
+          <p>Department of Already Owning It</p>
+        </div>
       </div>
     </div>
   );

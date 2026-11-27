@@ -16,6 +16,7 @@ import { ShelfScan } from "./ShelfScan";
 import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Movie, type TmdbHit } from "../lib/types";
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
+import { Redacted } from "./Redacted";
 import { IconCamera, IconScan, IconSearch, IconShelfPhoto, IconStack } from "./icons";
 import { SyncPill } from "./SyncPill";
 import { allScans, onScans, queueScan, type Scan } from "../lib/scans";
@@ -186,7 +187,7 @@ function PendingCard({ scan, onNext }: { scan: Scan; onNext: () => void }) {
 function ScanTray({ scans, onOpen }: { scans: Scan[]; onOpen: (id: string) => void }) {
   return (
     <section class="scan-tray" aria-label="Recent scans">
-      <h3 class="suggest-head">This trip</h3>
+      <h3 class="suggest-head">01 · This trip</h3>
       <ul class="list">
         {scans.slice(0, 12).map((s) => {
           const v = s.verdict;
@@ -198,7 +199,7 @@ function ScanTray({ scans, onOpen }: { scans: Scan[]; onOpen: (id: string) => vo
               <button class="list-row" onClick={() => onOpen(s.id)}>
                 {disp ? <Poster movie={disp} size="w185" class="thumb" /> : <span class="thumb scan-ghost" aria-hidden="true" />}
                 <span class="stack grow">
-                  <b>{disp?.title ?? (s.error ? "Couldn't check" : s.label === "Cover photo" ? "Reading the cover…" : "Checking…")}</b>
+                  {disp ? <b>{disp.title}</b> : s.error ? <b>Couldn't check</b> : <Redacted label={s.label === "Cover photo" ? "Reading the cover" : "Checking"} />}
                   <span class="muted">{disp?.year ?? (s.label === "Cover photo" ? "Cover photo" : s.label)}</span>
                 </span>
                 <span class="scan-word">{v ? WORD_OF[k] : s.error ? "Retry later" : ""}</span>
@@ -518,7 +519,7 @@ export function Check() {
 
         {!shown && !pending && results && fresh.length > 0 && (
           <>
-            <h3 class="suggest-head">{results.length ? "Not on your shelf" : "Did you mean"}</h3>
+            <h3 class="suggest-head">{results.length ? "02 · Not on your shelf" : "02 · Did you mean"}</h3>
             <ul class="list">
               {fresh.map((h) => (
                 <li key={h.tmdb_id}>

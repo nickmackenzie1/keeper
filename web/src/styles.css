@@ -900,3 +900,49 @@ main { flex: 1; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 [data-skin="marquee"] .seg button.on { background: #fff; color: #050505; border-color: #fff; }
 /* Small mono labels: a touch bigger and bolder so the purple reads easily */
 [data-skin="marquee"] .search::before, [data-skin="marquee"] .suggest-head, .setup-file, .line-field span { font-size: 12px; font-weight: 600; }
+
+/* =====================================================================
+   v1.1 — Control rules: white does the work, the accent only marks things.
+   ===================================================================== */
+/* Labels you read are white. */
+[data-skin="marquee"] .search::before, [data-skin="marquee"] .suggest-head, .setup-file, .line-field span { color: #fff; }
+[data-skin="marquee"] .zone-kicker { color: rgba(255, 255, 255, 0.78); }
+/* The accent is a state: what's selected, what's new, what you're hunting. */
+[data-skin="marquee"] .filter.on { color: #fff; border-color: var(--accent); }
+[data-skin="marquee"] .search:focus-within { border-bottom-color: var(--accent); }
+.line-field input:focus { border-bottom-color: #c3a0ff; }
+[data-skin="marquee"] .hunt-banner { border-left: 0; box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Settings cards read like numbered sections of a file. */
+[data-skin="marquee"] .screen-body { counter-reset: sec; }
+[data-skin="marquee"] .card > h3::before { counter-increment: sec; content: counter(sec, decimal-leading-zero) " · "; font-family: var(--mono); font-size: 0.7em; letter-spacing: 1px; color: var(--muted); vertical-align: 0.15em; }
+
+/* Redaction: details still on their way. */
+.redacted { display: inline-flex; flex-direction: column; gap: 6px; width: 100%; max-width: 320px; }
+.redact-bar { display: block; height: 0.9em; background: currentColor; opacity: 0.92; animation: breathe 1.3s ease-in-out infinite alternate; }
+.redact-bar.short { width: 55%; }
+.redact-tag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.list-row .redacted { max-width: 180px; gap: 4px; }
+.list-row .redact-bar { height: 14px; }
+
+/* ---- Accessibility ---- */
+/* Placeholders bright enough to read (4.5:1+). */
+[data-skin="marquee"] .search input::placeholder { color: rgba(255, 255, 255, 0.62); }
+.line-field input::placeholder { color: rgba(255, 255, 255, 0.6); }
+/* Finger-sized targets. */
+[data-skin="marquee"] .filter { min-height: 44px; }
+/* A clear outline when moving around with a keyboard. */
+:focus-visible { outline: 2px solid #c3a0ff; outline-offset: 3px; }
+input:focus-visible { outline: none; }
+/* Larger Text: reading text follows the iPhone's text size; big headlines stay put. */
+@supports (font: -apple-system-body) {
+  html { font: -apple-system-body; }
+  body { font-size: 1rem; }
+  .overview, .verdict-sub, .notice, .setup-tag, .list-row b, .copy b, .card p, .hello .muted { font-size: max(15px, 0.94rem); }
+  .list-row .muted, .start-tile .muted, .hero-scan .muted { font-size: max(13px, 0.82rem); }
+}
+/* Reduce Motion: no slides, sweeps or flicker; things simply appear. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .pending-sweep { display: none; }
+}

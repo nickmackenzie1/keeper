@@ -4,6 +4,7 @@ import { ChangePoster, FixMatch } from "./MatchFixer";
 import { copiesFor, deleteCopy, deleteMovie, getMovie, saveCopy } from "../lib/db";
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, FORMAT_SHORT, type Copy } from "../lib/types";
 import { Poster } from "./Poster";
+import { Redacted } from "./Redacted";
 import { IconTrash } from "./icons";
 import { go, useData } from "./util";
 import { Person } from "./Person";
@@ -46,7 +47,7 @@ export function MovieDetail({ id }: { id: string }) {
           </div>
         </div>
         {movie.overview && <p class="overview">{movie.overview}</p>}
-        {!movie.overview && movie.tmdb_id && !movie.genres && <p class="overview filling">Filling in the details…</p>}
+        {!movie.overview && movie.tmdb_id && !movie.genres && <p class="overview"><Redacted label="Data pending" lines={3} /></p>}
 
         {!fixing && (
           <div class="row">

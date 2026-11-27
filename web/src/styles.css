@@ -1003,3 +1003,13 @@ input:focus-visible { outline: none; }
 .setup-go { font-size: 18px; letter-spacing: 0; }
 /* The credits block: tiny caps labels, then the names, like the bottom of a poster */
 .zone-kicker { font-weight: 600; letter-spacing: 0.22em; }
+
+/* Settings › Log */
+.log-list { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; line-height: 1.45; border-top: 1px solid var(--line); }
+.log-list li { display: grid; grid-template-columns: auto auto 1fr; gap: 0 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.log-time { color: var(--muted); white-space: nowrap; }
+.log-kind { text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.log-error .log-kind, .log-error .log-text { color: var(--accent); }
+.log-text { word-break: break-word; }
+.log-list li:has(.log-text):not(:has(.log-kind)) { grid-template-columns: auto 1fr; }
+.log-head { margin: 8px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }

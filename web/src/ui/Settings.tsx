@@ -1,8 +1,9 @@
 import { Logo } from "./Logo";
+import { clearLog, onLog, readLog, type LogLine } from "../lib/log";
 import { ScreenTitle } from "./Zone";
 import { Skeleton } from "./Skeleton";
 import { useEffect, useState } from "preact/hooks";
-import { diagnostics, listDevices } from "../lib/api";
+import { api, diagnostics, listDevices } from "../lib/api";
 import { deviceId, getMeta, pendingCount, setMeta } from "../lib/db";
 import { sync } from "../lib/live";
 import { currentSubscription, disablePush, enablePush, isInstalled, pushSupported, testPush } from "../lib/push";
@@ -153,6 +154,7 @@ export function Settings() {
               {([
                 ["Movie database (TMDB)", diag.tmdb],
                 ["Barcode lookups", diag.barcode],
+                ["Records (Discogs)", diag.records ?? "missing: update the server"],
                 ["AI photos", diag.ai],
               ] as const).map(([label, v]) => (
                 <li key={label} class={v.startsWith("ok") || v === "configured" ? "ok" : "bad"}>
@@ -163,7 +165,7 @@ export function Settings() {
             </ul>
           )}
           {diag && typeof diag === "object" && <p class="muted">Server version {diag.version.slice(0, 7)}</p>}
-          {diag === "failed" && <p class="notice">Couldn't reach The server.</p>}
+          {diag === "failed" && <p class="notice">Couldn't reach the server.</p>}
           <button
             class="btn block"
             disabled={diag === "checking"}
@@ -180,6 +182,8 @@ export function Settings() {
           </button>
         </section>
 
+        <LogCard />
+
         {msg && <p class="notice" role="status">{msg}</p>}
         <div class="logo-foot">
           <Logo size={90} />
@@ -188,5 +192,59 @@ export function Settings() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** A light log of what the app has been doing on this phone, plus the server's recent problems. */
+function LogCard() {
+  const [open, setOpen] = useState(false);
+  const [lines, setLines] = useState<LogLine[]>(readLog());
+  const [server, setServer] = useState<{ t: number; text: string }[] | null>(null);
+  useEffect(() => onLog(() => setLines(readLog())), []);
+  const fmt = (t: number) => {
+    const d = new Date(t);
+    const today = d.toDateString() === new Date().toDateString();
+    return d.toLocaleString("en-CA", today ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  };
+  const text = lines.map((l) => `${fmt(l.t)}  ${l.kind.toUpperCase()}  ${l.text}`).join("\n");
+  return (
+    <section class="card">
+      <h3>Log</h3>
+      <p class="muted">What this phone has been up to: syncs, scans, adds, updates and anything that went wrong.</p>
+      <button class="btn block" aria-expanded={open} onClick={() => { setOpen(!open); if (!open) api<{ lines: { t: number; text: string }[] }>("/log").then((r) => setServer(r.lines)).catch(() => setServer(null)); }}>
+        {open ? "Hide log" : `Show log (${lines.length})`}
+      </button>
+      {open && (
+        <>
+          <ol class="log-list">
+            {lines.length === 0 && <li class="muted">Nothing yet.</li>}
+            {lines.map((l, i) => (
+              <li key={i} class={`log-${l.kind}`}>
+                <span class="log-time">{fmt(l.t)}</span>
+                <span class="log-kind">{l.kind}</span>
+                <span class="log-text">{l.text}</span>
+              </li>
+            ))}
+          </ol>
+          {server && server.length > 0 && (
+            <>
+              <h4 class="log-head">Server · recent problems</h4>
+              <ol class="log-list">
+                {server.map((l, i) => (
+                  <li key={i} class="log-error">
+                    <span class="log-time">{fmt(l.t)}</span>
+                    <span class="log-text">{l.text}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+          <div class="row">
+            <button class="btn grow" onClick={() => void navigator.clipboard?.writeText(text)}>Copy</button>
+            <button class="btn" onClick={() => clearLog()}>Clear</button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

@@ -12,6 +12,18 @@ import { colourAlbums, colourMovies, enrichMovies, seriesRouter } from "./enrich
 import { discogs, recordsRouter, shareRecords, shareWants } from "./discogs.js";
 import { shelfRouter } from "./shelf.js";
 
+// A light log of recent problems (warnings and errors), shown in the app's Settings › Log.
+const recent: { t: number; text: string }[] = [];
+for (const level of ["warn", "error"] as const) {
+  const orig = console[level].bind(console);
+  console[level] = (...args: unknown[]) => {
+    orig(...args);
+    const text = args.map((a) => (a instanceof Error ? a.message : typeof a === "string" ? a : JSON.stringify(a))).join(" ").slice(0, 300);
+    recent.unshift({ t: Date.now(), text });
+    if (recent.length > 60) recent.pop();
+  };
+}
+
 // Docker on Synology often has no IPv6; trying IPv6 first makes outside requests hang.
 dns.setDefaultResultOrder("ipv4first");
 
@@ -48,6 +60,8 @@ app.use("/api", pushRouter);
 app.use("/api", seriesRouter);
 app.use("/api", shelfRouter);
 app.use("/api", recordsRouter);
+
+app.get("/api/log", (_req, res) => res.json({ lines: recent }));
 
 app.get("/api/stats", (_req, res) => {
   const q = (sql: string) => (db.prepare(sql).get() as { n: number }).n;

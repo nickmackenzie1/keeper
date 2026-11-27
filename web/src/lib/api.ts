@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { getMeta } from "./db";
 import { rememberHits } from "./hits";
 import type { AlbumHit, BarcodeLookup, PressingInfo, RecordLookup, Series, ShelfSpine, TmdbHit } from "./types";
@@ -32,6 +33,7 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}`, ...(init.headers ?? {}) },
     });
   } catch (e) {
+    log("error", `${path.split("?")[0]}: ${(e as Error)?.name === "TimeoutError" ? "timed out" : "no connection"}`);
     if ((e as Error)?.name === "TimeoutError") throw new ApiError("The server didn't answer in time. Check Settings › Server check.", "server", 504);
     throw new ApiError("Can't reach the server", "offline");
   }
@@ -57,7 +59,10 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
   }
   if (res.status === 401) throw new ApiError("Wrong access code", "unauthorized", 401);
   const body = await res.json();
-  if (!res.ok) throw new ApiError(body?.error ?? `Error ${res.status}`, "server", res.status);
+  if (!res.ok) {
+    log("error", `${path.split("?")[0]}: ${body?.error ?? `HTTP ${res.status}`}`);
+    throw new ApiError(body?.error ?? `Error ${res.status}`, "server", res.status);
+  }
   return body as T;
 }
 

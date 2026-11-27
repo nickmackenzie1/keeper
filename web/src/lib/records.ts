@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { uuid } from "./uuid";
 import { recordMaster } from "./api";
 import {
@@ -69,6 +70,7 @@ export async function addRecord(input: AddRecordInput): Promise<{ album: Album; 
     created_at: Date.now(),
     deleted: false,
   });
+  log("add", `Added ${album.artist ? album.artist + " – " : ""}${album.title} (${input.format})`);
   await markAlbumHuntsFound(album.discogs_master_id ?? album.discogs_release_id, album.artist, album.title);
   if (fillIn && album.discogs_master_id) void fillInAlbum(album.id, album.discogs_master_id);
   return { album, pressing };

@@ -4,6 +4,9 @@ import { App } from "./ui/App";
 import { applySkin, DEFAULT_SKIN, type Skin } from "./ui/skins";
 import { getMeta } from "./lib/db";
 import "./styles.css";
+import { log, watchErrors } from "./lib/log";
+
+watchErrors();
 
 // The skin is also applied pre-paint from localStorage in index.html; this keeps it in step with IndexedDB.
 getMeta("theme").then((s) => {
@@ -24,6 +27,7 @@ const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
     updateReady = true;
+    log("update", "New version downloaded; switching next time the app is in the background");
     if (document.visibilityState === "hidden") void updateSW(true);
   },
 });

@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { uuid } from "./uuid";
 import { tmdbDetails } from "./api";
 import { copiesFor, getMeta, getMovie, markHuntsFound, movieByTmdb, saveCopy, saveMovie } from "./db";
@@ -71,6 +72,7 @@ export async function addDisc(input: AddDiscInput): Promise<{ movie: Movie; copy
   });
 
   await markHuntsFound(movie.tmdb_id, movie.title);
+  log("add", `Added ${movie.title} (${input.format})`);
   if (fillIn && input.tmdb) void fillInDetails(movie.id, input.tmdb.tmdb_id);
   return { movie, copy };
 }
@@ -95,7 +97,7 @@ async function fillInDetails(movieId: string, tmdbId: number) {
       poster_accent: rest.poster_accent ?? d.palette?.accent ?? null,
       palette_for: rest.palette_for ?? (d.palette ? d.poster_path ?? null : null),
     });
-  } catch {
-    /* offline: the server fills these in after the next sync */
+  } catch (e) {
+    log("info", `Details for a new movie will fill in later (${e instanceof Error ? e.message : "offline"})`);
   }
 }

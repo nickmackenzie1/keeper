@@ -1,3 +1,4 @@
+import { log } from "./log";
 import { deviceId, getMeta, onChanged } from "./db";
 import { syncNow, type SyncResult } from "./sync";
 
@@ -26,6 +27,8 @@ export async function sync() {
   emit({ syncing: true });
   const last = await syncNow();
   emit({ syncing: false, last });
+  if (!last.ok) log("sync", `Sync failed: ${last.error ?? "unknown"}`);
+  else if (last.full || last.pulled || last.pushed) log("sync", `Synced${last.full ? " (full copy)" : ""}: sent ${last.pushed ?? 0}, got ${last.pulled ?? 0}`);
   return last;
 }
 

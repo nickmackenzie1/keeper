@@ -109,7 +109,7 @@ export function Shelf() {
         {data && data.movies.length > 1 && (
           <a class="movie-night" href="#/tonight">
             <b>Movie night</b>
-            <span class="muted">Can't decide? Let Keeper pick from your shelf</span>
+            <span class="muted">Can't decide? We'll pick something from your shelf</span>
           </a>
         )}
         {data && data.movies.length === 0 && (

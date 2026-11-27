@@ -79,7 +79,7 @@ export function Scanner({ onCode, onClose, continuous = false, status, hint }: P
         if (e.name === "Closed") return;
         setError(
           e.name === "NotAllowedError"
-            ? "Camera access is off. Allow it for Keeper in iPhone Settings, or type the barcode below."
+            ? "Camera access is off. Allow it for At Home in iPhone Settings, or type the barcode below."
             : "Couldn't start the camera. You can type the barcode below.",
         );
       });

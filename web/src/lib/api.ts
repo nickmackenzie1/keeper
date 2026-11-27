@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Same-origin call to the Keeper server. Works in pages and in the service worker.
+ * Same-origin call to the server. Works in pages and in the service worker.
  * Cloudflare Access answers an expired session with a redirect to its login page;
  * `redirect: "manual"` lets us spot that instead of failing with a vague CORS error.
  */
@@ -31,15 +31,15 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}`, ...(init.headers ?? {}) },
     });
   } catch (e) {
-    if ((e as Error)?.name === "TimeoutError") throw new ApiError("Keeper didn't answer in time. Check Settings › Server check.", "server", 504);
-    throw new ApiError("Can't reach Keeper", "offline");
+    if ((e as Error)?.name === "TimeoutError") throw new ApiError("The server didn't answer in time. Check Settings › Server check.", "server", 504);
+    throw new ApiError("Can't reach the server", "offline");
   }
   if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
     throw new ApiError("Sign in again", "login_required", res.status);
   }
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
-    // Not Keeper answering: either Cloudflare's login page, or Cloudflare saying the
+    // Not At Home answering: either Cloudflare's login page, or Cloudflare saying the
     // server is down (e.g. restarting after an auto-update). Tell those apart.
     const text = await res.text().catch(() => "");
     if (/cloudflareaccess\.com|cf-access|Cloudflare Access|Sign in ・ Cloudflare/i.test(text) || res.status === 403) {
@@ -47,7 +47,7 @@ export async function api<T>(path: string, init: RequestInit & { timeoutMs?: num
     }
     if (res.status >= 500 || res.status === 0) {
       throw new ApiError(
-        `Keeper's server isn't responding (HTTP ${res.status}). It may be restarting after an update — try again in a minute.`,
+        `The server isn't responding (HTTP ${res.status}). It may be restarting after an update — try again in a minute.`,
         "server",
         res.status,
       );

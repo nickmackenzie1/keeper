@@ -28,7 +28,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
             ? "That access code isn't right."
             : err.kind === "login_required"
               ? "Sign in through Cloudflare first, then try again."
-              : "Can't reach the Keeper server."
+              : "Can't reach the server."
           : `Something went wrong: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
@@ -39,11 +39,11 @@ export function Setup({ onDone }: { onDone: () => void }) {
   return (
     <div class="screen setup">
       <div class="screen-body">
-        <h1 class="brand">Keeper</h1>
+        <h1 class="brand">We Have It At Home</h1>
         <p>Your movie collection, in your pocket. Set up this phone once.</p>
         {!window.isSecureContext && (
           <p class="notice">
-            You're on a plain <b>http://</b> address. Keeper will work, but the camera scanner, offline mode and notifications
+            You're on a plain <b>http://</b> address. At Home will work, but the camera scanner, offline mode and notifications
             need the secure address — open <b>https://keeper.mackenzie.house</b> instead, and add that one to your Home Screen.
           </p>
         )}
@@ -54,7 +54,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
           </label>
           <label class="field">
             Access code
-            <input type="password" placeholder="From Keeper's .env file" value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value)} autoComplete="current-password" required />
+            <input type="password" placeholder="From the .env file on the NAS" value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value)} autoComplete="current-password" required />
           </label>
           {error && <p class="notice">{error}</p>}
           <button class="btn primary block" disabled={busy || !code.trim()}>{busy ? "Connecting…" : "Get started"}</button>

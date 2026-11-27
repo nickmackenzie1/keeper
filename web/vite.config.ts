@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectManifest: { globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"] },
       manifest: {
-        name: "Keeper",
-        short_name: "Keeper",
+        name: "We Have It At Home",
+        short_name: "We Have It At Home",
         description: "Our DVD & Blu-ray collection — check before you buy.",
         start_url: "/#/check",
         scope: "/",
@@ -23,7 +23,7 @@ export default defineConfig({
         icons: [
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
     }),

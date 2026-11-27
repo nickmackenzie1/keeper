@@ -8,7 +8,7 @@ import { syncNow } from "./lib/sync";
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string; revision: string | null }> };
 
-// App shell: cached at install so Keeper opens with no signal.
+// App shell: cached at install so At Home opens with no signal.
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 registerRoute(new NavigationRoute(createHandlerBoundToURL("index.html"), { denylist: [/^\/api\//] }));
@@ -46,7 +46,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     Promise.all([
       data.sync === false ? Promise.resolve() : syncNow().catch(() => undefined),
-      self.registration.showNotification(data.title ?? "Keeper", {
+      self.registration.showNotification(data.title ?? "At Home", {
         body: data.body ?? "Your collection was updated.",
         tag: data.tag ?? "keeper",
         icon: "/icons/icon-192.png",

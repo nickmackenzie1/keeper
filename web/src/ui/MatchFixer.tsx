@@ -10,7 +10,7 @@ import { go } from "./util";
 const strip = <T extends { updated_at: number; updated_by: string; dirty: number }>({ updated_at: _u, updated_by: _b, dirty: _d, ...rest }: T) => rest;
 
 const why = (e: unknown) =>
-  e instanceof ApiError && e.kind === "offline" ? "Needs a connection to Keeper." : e instanceof Error ? e.message : "Something went wrong.";
+  e instanceof ApiError && e.kind === "offline" ? "Needs a connection to the server." : e instanceof Error ? e.message : "Something went wrong.";
 
 /** Wrong movie matched (or none)? Search TMDB and pick the right one. */
 export function FixMatch({ movie, onDone }: { movie: Movie; onDone: () => void }) {

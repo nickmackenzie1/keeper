@@ -112,7 +112,7 @@ export function Hunt() {
         {!results && hunts && open.length === 0 && who === "everyone" && (
           <div class="empty">
             <p><b>Nothing on the hunt list yet.</b></p>
-            <p class="muted">Add movies you're looking for. When either of you scans one in a store, Keeper celebrates.</p>
+            <p class="muted">Add movies you're looking for. When either of you scans one in a store, At Home celebrates.</p>
           </div>
         )}
 

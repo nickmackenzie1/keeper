@@ -52,9 +52,9 @@ export function Add({ query }: { query: URLSearchParams }) {
   const fail = (e: unknown) =>
     setError(
       e instanceof ApiError && e.kind === "offline"
-        ? "No connection to Keeper right now. You can still add it by title below and it'll sync later."
+        ? "No connection to the server right now. You can still add it by title below and it'll sync later."
         : e instanceof ApiError && e.kind === "login_required"
-          ? "Your sign-in expired. Reopen Keeper to sign in again."
+          ? "Your sign-in expired. Reopen At Home to sign in again."
           : e instanceof Error ? e.message : "Something went wrong",
     );
 

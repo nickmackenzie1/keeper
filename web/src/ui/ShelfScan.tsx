@@ -102,7 +102,7 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
           ? e.kind === "offline"
             ? "Shelf scan needs a connection. Barcode checks still work offline."
             : e.kind === "login_required"
-              ? "Your sign-in expired. Reopen Keeper to sign in."
+              ? "Your sign-in expired. Reopen At Home to sign in."
               : e.message
           : "Couldn't read that photo. Try again a little closer, with the spines straight on.",
       );
@@ -193,7 +193,7 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
 
         {!busy && !rows && (
           <>
-            <p>Take a photo of a shelf with the spines facing you. Keeper reads the titles and tells you what's worth grabbing: hunt list matches, collector editions, rare finds, upgrades and gaps in your series.</p>
+            <p>Take a photo of a shelf with the spines facing you. At Home reads the titles and tells you what's worth grabbing: hunt list matches, collector editions, rare finds, upgrades and gaps in your series.</p>
             <button class="btn primary block" onClick={() => camera.current?.click()}>Take a photo</button>
             <button class="btn block" onClick={() => library.current?.click()}>Choose from photos</button>
             <p class="muted">Tip: one shelf at a time, straight on, in good light. Uses about 1–3¢ of AI per photo.</p>

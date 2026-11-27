@@ -39,7 +39,7 @@ export function ZoneTitle({
 }
 
 /** Screen heading: a zone title in Marquee, a plain h1 in the other skins. */
-export function ScreenTitle({ title, kicker = "Keeper" }: { title: string; kicker?: string }) {
+export function ScreenTitle({ title, kicker = "We Have It At Home" }: { title: string; kicker?: string }) {
   if (currentSkin() !== "marquee") return <h1>{title}</h1>;
   const play = !played.has(title);
   played.add(title);

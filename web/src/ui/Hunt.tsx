@@ -6,6 +6,7 @@ import { addHunt, allHunts, myName, saveHunt } from "../lib/db";
 import { Person, useMe } from "./Person";
 import type { Hunt as HuntRow, TmdbHit } from "../lib/types";
 import { Poster } from "./Poster";
+import { Cover } from "./Cover";
 import { IconSearch, IconTrash } from "./icons";
 import { SyncPill } from "./SyncPill";
 import { timeAgo, useData } from "./util";
@@ -112,7 +113,7 @@ export function Hunt() {
         {!results && hunts && open.length === 0 && who === "everyone" && (
           <div class="empty">
             <p><b>Nothing on the hunt list yet.</b></p>
-            <p class="muted">Add movies you're looking for. When either of you scans one in a store, Library celebrates.</p>
+            <p class="muted">Add movies and records you're looking for. When either of you scans one in a store, Library celebrates.</p>
           </div>
         )}
 
@@ -120,12 +121,12 @@ export function Hunt() {
           <ul class="hunt-grid">
             {open.map((h) => (
               <li key={h.id} class="hunt-card">
-                <Poster movie={h} size="w342" />
+                {h.kind === "album" ? <Cover album={h} class="hunt-cover" /> : <Poster movie={h} size="w342" />}
                 <div class="stack">
                   <b>{h.title}</b>
                   <span class="muted row hunt-meta">
                     <Person name={h.added_by} size={18} />
-                    {[h.year, h.added_by].filter(Boolean).join(" · ")}
+                    {[h.kind === "album" ? h.artist : null, h.year, h.added_by].filter(Boolean).join(" · ")}
                   </span>
                   {h.notes && <span class="muted">{h.notes}</span>}
                 </div>
@@ -149,7 +150,7 @@ export function Hunt() {
               <ul class="list">
                 {found.map((h) => (
                   <li key={h.id} class="list-row">
-                    <Poster movie={h} size="w185" class="thumb" />
+                    {h.kind === "album" ? <Cover album={h} class="thumb" /> : <Poster movie={h} size="w185" class="thumb" />}
                     <span class="stack grow">
                       <b>{h.title}</b>
                       <span class="muted row hunt-meta">

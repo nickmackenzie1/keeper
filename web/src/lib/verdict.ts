@@ -1,5 +1,6 @@
 import { allHunts, allMovies, copiesByBarcode, copiesFor, getMovie, movieByTmdb } from "./db";
-import { ApiError, lookupBarcode } from "./api";
+import { ApiError, lookupAny } from "./api";
+import { recordVerdictForOwnedBarcode, recordVerdictFromCover, recordVerdictFromLookup, type RecordVerdict } from "./records";
 import { isUpgradeOver, type BarcodeLookup, type Copy, type Format, type Hunt, type Movie, type Rarity, type ShelfSpine } from "./types";
 
 export type VerdictKind = "not_owned" | "upgrade" | "have" | "owned";
@@ -20,6 +21,8 @@ export interface Verdict {
   exact?: boolean;
   /** How often you've seen it on store trips. */
   rarity?: Rarity | null;
+  /** It's a record, not a movie: everything about it is in here. */
+  record?: RecordVerdict;
 }
 
 /** Core rule: compare the disc in hand with what we own. */
@@ -77,7 +80,11 @@ export async function searchHunts(q: string): Promise<Hunt[]> {
  * 2) Online: ask the server what the barcode is, then match by TMDB id or title.
  * 3) Offline and unknown: say so, suggest typing the title.
  */
+const recordOnly = (record: RecordVerdict): Verdict => ({ kind: "not_owned", movie: null, copies: [], scanned: null, record, rarity: record.rarity });
+
 export async function verdictForBarcode(code: string, opts: { store?: boolean } = {}): Promise<Verdict> {
+  const ownedRecord = await recordVerdictForOwnedBarcode(code);
+  if (ownedRecord) return recordOnly(ownedRecord);
   const exact = await copiesByBarcode(code);
   if (exact.length) {
     const movie = (await getMovie(exact[0].movie_id)) ?? null;
@@ -89,12 +96,13 @@ export async function verdictForBarcode(code: string, opts: { store?: boolean } 
 
   let lookup: BarcodeLookup;
   try {
-    lookup = await lookupBarcode(code, opts.store);
+    const any = await lookupAny(code, opts.store);
+    if (any.kind === "album") return recordOnly(await recordVerdictFromLookup(any));
+    lookup = any;
   } catch (e) {
     if (e instanceof ApiError) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
     throw e;
   }
-  // Records arrive in the next update; until then a record barcode is just "unknown".
   if (!Array.isArray(lookup.candidates)) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
 
   let movie: Movie | null = null;
@@ -117,6 +125,7 @@ export async function verdictForBarcode(code: string, opts: { store?: boolean } 
 /** Cover photo → verdict, same shape as a barcode check. */
 export async function verdictForCover(spine: ShelfSpine | null): Promise<Verdict> {
   if (!spine) return { kind: "not_owned", movie: null, copies: [], scanned: null, unknown: true };
+  if (spine.kind === "album") return recordOnly(await recordVerdictFromCover(spine.album ?? null, { artist: spine.artist, title: spine.title, format: spine.format }, spine.rarity));
   const fmt = spine.format === "unknown" ? null : (spine.format as Format);
   let movie: Movie | null = spine.match ? ((await movieByTmdb(spine.match.tmdb_id)) ?? null) : null;
   if (!movie) {

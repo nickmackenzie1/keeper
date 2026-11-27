@@ -104,8 +104,15 @@ export async function releaseDetails(id: number): Promise<{ album: AlbumHit; pre
   const r = await discogs(`/releases/${id}`);
   if (!r) return null;
   const fmts = (r.formats ?? []) as { name: string; qty?: string; descriptions?: string[]; text?: string }[];
+  // "2×LP, Reissue, Red" — the format itself (Vinyl/CD) is shown separately, so it's left out here.
+  const main = /^(vinyl|cd|cassette)$/i;
   const description = fmts
-    .map((f) => [Number(f.qty) > 1 ? `${f.qty}×${f.name}` : f.name, ...(f.descriptions ?? []), f.text].filter(Boolean).join(", "))
+    .map((f) => {
+      const d = [...(f.descriptions ?? []), f.text].filter(Boolean) as string[];
+      if (Number(f.qty) > 1 && d.length) d[0] = `${f.qty}×${d[0]}`;
+      return [main.test(f.name) ? null : f.name, ...d].filter(Boolean).join(", ");
+    })
+    .filter(Boolean)
     .join(" + ") || null;
   const img = (r.images ?? []).find((i: any) => i.type === "primary") ?? r.images?.[0];
   return {
@@ -163,7 +170,7 @@ export async function albumByBarcode(barcode: string): Promise<{ album: AlbumHit
       album: base,
       pressing: {
         format: formatFrom(hit.format),
-        description: (hit.format ?? []).join(", ") || null,
+        description: ((hit.format ?? []) as string[]).filter((f) => !/^(vinyl|cd|cassette)$/i.test(f)).join(", ") || null,
         discogs_release_id: hit.id,
         label: hit.label?.[0] ?? null,
         catno: hit.catno ?? null,
@@ -234,6 +241,12 @@ export async function recordBarcodeAnswer(barcode: string, store: boolean) {
  * GET /api/share/records — read-only list of the record collection for other apps
  * (CRATE DIGGER). Uses SHARE_TOKEN, so the other app never gets Keeper's main code.
  */
+/** Records on the hunt list (not found yet), for other apps' wantlists. */
+export function shareWants() {
+  return (db.prepare("SELECT title, artist, year, discogs_id, cover_url, added_by, notes FROM hunts WHERE deleted = 0 AND found = 0 AND kind = 'album'").all() as any[])
+    .map((h) => ({ artist: h.artist, title: h.title, year: h.year, discogs_master_id: h.discogs_id, cover_url: h.cover_url, added_by: h.added_by, notes: h.notes }));
+}
+
 export function shareRecords() {
   const albums = db.prepare("SELECT * FROM albums WHERE deleted = 0 ORDER BY artist, year").all() as any[];
   const pressings = db.prepare("SELECT * FROM pressings WHERE deleted = 0").all() as any[];

@@ -17,7 +17,7 @@ const H = { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}`
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), "keeper-"));
 const server = spawn("node", ["dist/index.js"], {
-  env: { ...process.env, PORT: String(PORT), DATA_DIR, KEEPER_API_TOKEN: TOKEN, BONJOUR: "off" },
+  env: { ...process.env, PORT: String(PORT), DATA_DIR, KEEPER_API_TOKEN: TOKEN, BONJOUR: "off", SHARE_TOKEN: "share-token" },
   stdio: ["ignore", "pipe", "inherit"],
 });
 await new Promise<void>((ok) => server.stdout!.on("data", (d) => String(d).includes("listening") && ok()));
@@ -107,6 +107,20 @@ try {
   const hb = await sync("phoneB", stale.cursor);
   const got = hb.changes.hunts.find((h: any) => h.id === hunt.id);
   assert.equal(got.title, "Aliens"); assert.equal(got.found, false); ok("hunt list syncs between phones");
+
+  // Records: an album and its pressing sync to the other phone, and show up in the share link
+  const album = { id: randomUUID(), discogs_master_id: 23934, title: "Rumours", artist: "Fleetwood Mac", year: 1977, updated_at: Date.now(), updated_by: "phoneA" };
+  const pressing = { id: randomUUID(), album_id: album.id, format: "vinyl", description: "LP, Reissue", barcode: "075992731310", updated_at: Date.now(), updated_by: "phoneA", added_by: "Nick", created_at: Date.now() };
+  const wantAlbum = { id: randomUUID(), kind: "album", title: "Tusk", artist: "Fleetwood Mac", discogs_id: 1111, found: false, updated_at: Date.now(), updated_by: "phoneA" };
+  const r1 = await fetch(`${BASE}/sync`, { method: "POST", headers: H, body: JSON.stringify({ device_id: "phoneA", cursor: 0, changes: { albums: [album], pressings: [pressing], hunts: [wantAlbum] } }) }).then((r) => r.json()) as any;
+  assert.equal(r1.applied.accepted, 3);
+  const rb = await sync("phoneB", hb.cursor);
+  assert.equal(rb.changes.albums.find((a: any) => a.id === album.id)?.title, "Rumours");
+  assert.equal(rb.changes.pressings.find((p: any) => p.id === pressing.id)?.format, "vinyl"); ok("records sync between phones");
+  assert.equal((await fetch(`${BASE}/share/records`)).status, 401);
+  const share = await (await fetch(`${BASE}/share/records?token=share-token`)).json() as any;
+  assert.equal(share.records[0].artist, "Fleetwood Mac"); assert.equal(share.records[0].copies[0].format, "vinyl");
+  assert.equal(share.wants[0].title, "Tusk"); ok("share link lists records and record hunts, with its own token");
 
   // Bad payload
   assert.equal((await fetch(`${BASE}/sync`, { method: "POST", headers: H, body: JSON.stringify({ cursor: 0 }) })).status, 400); ok("invalid payload rejected");

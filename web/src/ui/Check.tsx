@@ -17,6 +17,12 @@ import { FORMAT_LABEL, FORMAT_SHORT, FORMAT_RANK, type Copy, type Hunt, type Mov
 import { Scanner } from "./Scanner";
 import { Poster } from "./Poster";
 import { Redacted } from "./Redacted";
+import { Cover } from "./Cover";
+import { RecordCard, RecordReveal, recordDisplay, recordWord } from "./RecordVerdict";
+import { searchLocalAlbums, matchAlbumHunt, judgeRecord } from "../lib/records";
+import { searchRecords } from "../lib/api";
+import { RECORD_SHORT, type Album, type AlbumHit } from "../lib/types";
+import { pressingsFor } from "../lib/db";
 import { IconCamera, IconScan, IconSearch, IconShelfPhoto, IconStack } from "./icons";
 import { SyncPill } from "./SyncPill";
 import { allScans, onScans, queueScan, type Scan } from "../lib/scans";
@@ -104,7 +110,7 @@ function VerdictReveal({ v, onNext, onClose }: { v: Verdict; onNext: () => void;
           title={WORD[kind]}
           sub={sub}
           // Long words shrink so the rules always fit either side.
-          fontSize={`min(96px, ${Math.floor(78 / (WORD[kind].length * 0.47))}vw)`}
+          fontSize={`min(96px, ${Math.floor(78 / (WORD[kind].length * 0.68))}vw)`}
         />
         {v.rarity?.rare && kind !== "have" && <span class="reveal-rare">Rare find · first time in {v.rarity.trips} trips</span>}
       </div>
@@ -191,6 +197,21 @@ function ScanTray({ scans, onOpen }: { scans: Scan[]; onOpen: (id: string) => vo
       <ul class="list">
         {scans.slice(0, 12).map((s) => {
           const v = s.verdict;
+          if (v?.record) {
+            const d = recordDisplay(v.record);
+            return (
+              <li key={s.id} class={`scan-row scan-${v.record.hunt ? "hunt" : v.record.kind === "upgrade" ? "upgrade" : v.record.kind === "new" ? "not_owned" : "have"}`}>
+                <button class="list-row" onClick={() => onOpen(s.id)}>
+                  {d ? <Cover album={d} class="thumb" /> : <span class="thumb scan-ghost" aria-hidden="true" />}
+                  <span class="stack grow">
+                    <b>{d?.title ?? "Record"}</b>
+                    <span class="muted">{[d?.artist, d?.year].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  <span class="scan-word">{recordWord(v.record)}</span>
+                </button>
+              </li>
+            );
+          }
           const cand = v?.lookup?.candidates?.[0];
           const disp = v?.movie ?? (cand ? { title: cand.title, year: cand.year, poster_path: cand.poster_path } : null);
           const k = v ? kindOf(v) : s.error ? "error" : "pending";
@@ -312,6 +333,23 @@ function ResultRow({ m }: { m: Movie }) {
   );
 }
 
+function AlbumRow({ a }: { a: Album }) {
+  const [formats, setFormats] = useState<string[]>([]);
+  useEffect(() => void pressingsFor(a.id).then((ps) => setFormats([...new Set(ps.map((p) => p.format))])), [a.id]);
+  return (
+    <li>
+      <a class="list-row" href={`#/record/${a.id}`}>
+        <Cover album={a} class="thumb" />
+        <span class="stack grow">
+          <b>{a.title}</b>
+          <span class="muted">{[a.artist, a.year].filter(Boolean).join(" · ")}</span>
+        </span>
+        {formats.map((f) => <span key={f} class="chip" data-format={f}>{RECORD_SHORT[f as keyof typeof RECORD_SHORT]}</span>)}
+      </a>
+    </li>
+  );
+}
+
 function Hello() {
   const me = useMe();
   const hunts = useData(allHunts);
@@ -340,6 +378,8 @@ export function Check() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Movie[] | null>(null);
   const [suggest, setSuggest] = useState<TmdbHit[]>([]);
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [recSuggest, setRecSuggest] = useState<AlbumHit[]>([]);
   const [sugPage, setSugPage] = useState({ page: 1, more: false, loading: false });
   const [hunts, setHunts] = useState<Hunt[]>([]);
   const [haul, setHaul] = useState(false);
@@ -382,8 +422,31 @@ export function Check() {
     let alive = true;
     searchLocal(q).then((r) => alive && setResults(r));
     searchHunts(q).then((h) => alive && setHunts(h));
+    searchLocalAlbums(q).then((a) => alive && setAlbums(a));
     return () => void (alive = false);
   }, [q]);
+
+  // Records from Discogs as you type (quietly skipped when records aren't set up, or offline).
+  useEffect(() => {
+    if (q.trim().length < 3) {
+      setRecSuggest([]);
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => searchRecords(q.trim()).then((r) => alive && setRecSuggest(r.slice(0, 6))).catch(() => alive && setRecSuggest([])), 260);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+
+  const pickRecord = async (hit: AlbumHit) => {
+    const own = albums.find((a) => (hit.discogs_master_id && a.discogs_master_id === hit.discogs_master_id));
+    const pressings = own ? await pressingsFor(own.id) : [];
+    const rec = { kind: judgeRecord(own ?? null, pressings, null), album: own ?? null, pressings, hit, scanned: null, hunt: own ? undefined : await matchAlbumHunt(hit) };
+    setVerdict({ kind: "not_owned", movie: null, copies: [], scanned: null, record: rec });
+    if (rec.hunt) celebrate();
+  };
 
   // Suggestions from the movie database as you type (online only; quietly skipped offline).
   useEffect(() => {
@@ -494,7 +557,7 @@ export function Check() {
       <div class="screen-body">
         {error && <p class="notice">{error}</p>}
         {pending && currentSkin() !== "marquee" && <PendingCard scan={pending} onNext={next} />}
-        {shown && currentSkin() !== "marquee" && <VerdictCard v={shown} onNext={next} />}
+        {shown && currentSkin() !== "marquee" && (shown.record ? <RecordCard v={shown.record} onNext={next} /> : <VerdictCard v={shown} onNext={next} />)}
 
         {!shown && !pending && results && hunts.map((h) => (
           <div key={h.id} class="hunt-banner standalone">
@@ -506,7 +569,7 @@ export function Check() {
         {!shown && !pending && results && (
           results.length ? (
             <ul class="list">{results.map((m) => <ResultRow key={m.id} m={m} />)}</ul>
-          ) : (
+          ) : albums.length ? null : (
             <section class="verdict verdict-not_owned">
               <h2 class="verdict-title">Not in your collection</h2>
               <p class="verdict-sub">Nothing on your shelf matches “{q}”.</p>
@@ -515,6 +578,37 @@ export function Check() {
               </div>
             </section>
           )
+        )}
+
+        {!shown && !pending && results && albums.length > 0 && (
+          <>
+            <h3 class="suggest-head">Your records</h3>
+            <ul class="list">
+              {albums.slice(0, 8).map((a) => <AlbumRow key={a.id} a={a} />)}
+            </ul>
+          </>
+        )}
+
+        {!shown && !pending && results && recSuggest.filter((h) => !albums.some((a) => a.discogs_master_id && a.discogs_master_id === h.discogs_master_id)).length > 0 && (
+          <>
+            <h3 class="suggest-head">Records not on your shelf</h3>
+            <ul class="list">
+              {recSuggest
+                .filter((h) => !albums.some((a) => a.discogs_master_id && a.discogs_master_id === h.discogs_master_id))
+                .map((h) => (
+                  <li key={`${h.discogs_master_id}-${h.discogs_release_id}`}>
+                    <button class="list-row suggest-row" onClick={() => void pickRecord(h)}>
+                      <Cover album={h} class="thumb" />
+                      <span class="stack grow">
+                        <b>{h.title}</b>
+                        <span class="muted">{[h.artist, h.year].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      <span class="chip new">NEW</span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </>
         )}
 
         {!shown && !pending && results && fresh.length > 0 && (
@@ -580,7 +674,9 @@ export function Check() {
       </div>
 
       {pending && currentSkin() === "marquee" && <PendingReveal scan={pending} onNext={next} onClose={closeShown} />}
-      {shown && currentSkin() === "marquee" && <VerdictReveal key={opened?.id ?? "direct"} v={shown} onNext={next} onClose={closeShown} />}
+      {shown && currentSkin() === "marquee" && (shown.record
+        ? <RecordReveal key={opened?.id ?? "direct"} v={shown.record} onNext={next} onClose={closeShown} />
+        : <VerdictReveal key={opened?.id ?? "direct"} v={shown} onNext={next} onClose={closeShown} />)}
       {scanning && <Scanner onCode={onCode} onClose={() => setScanning(false)} />}
       {haul && <Haul onClose={() => setHaul(false)} />}
       {shelf && <ShelfScan onClose={() => setShelf(false)} />}

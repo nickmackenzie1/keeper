@@ -1,10 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
-import { allCopies, allHunts, getMeta, myName, onChanged } from "../lib/db";
+import { allCopies, allHunts, allPressings, getMeta, myName, onChanged } from "../lib/db";
 import { setPeople } from "./Person";
 import { newlyUnlocked } from "../lib/achievements";
 import { confetti, chime, toast } from "../lib/celebrate";
 import { startLiveSync } from "../lib/live";
 import { Add } from "./Add";
+import { AddRecord } from "./AddRecord";
+import { RecordDetail } from "./RecordDetail";
 import { Check } from "./Check";
 import { MovieDetail } from "./MovieDetail";
 import { Settings } from "./Settings";
@@ -62,6 +64,7 @@ export function App() {
     const load = async () => {
       const names: (string | null)[] = [await myName()];
       for (const c of await allCopies()) names.push(c.added_by);
+      for (const p of await allPressings()) names.push(p.added_by);
       for (const h of await allHunts()) names.push(h.added_by, h.found_by);
       setPeople(names);
       setPeopleReady(true);
@@ -76,6 +79,8 @@ export function App() {
   const tab = path[0] ?? "check";
   let screen;
   if (tab === "movie" && path[1]) screen = <MovieDetail id={path[1]} />;
+  else if (tab === "record" && path[1]) screen = <RecordDetail id={path[1]} />;
+  else if (tab === "add-record") screen = <AddRecord key={query.toString()} query={query} />;
   else if (tab === "shelf") screen = <Shelf />;
   else if (tab === "add") screen = <Add key={query.toString()} query={query} />;
   else if (tab === "settings") screen = <Settings />;
@@ -84,7 +89,7 @@ export function App() {
   else if (tab === "tonight") screen = <Tonight />;
   else screen = <Check />;
 
-  const active = tab === "movie" || tab === "add" || tab === "tonight" ? "shelf" : tab;
+  const active = ["movie", "add", "tonight", "record", "add-record"].includes(tab) ? "shelf" : tab;
   return (
     <div class="app">
       <main key={path.join("/") || "check"} class="route">{screen}</main>

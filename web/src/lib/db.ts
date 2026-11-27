@@ -1,6 +1,6 @@
 import { uuid } from "./uuid";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { Copy, Hunt, Movie, Series } from "./types";
+import type { Album, Copy, Hunt, Movie, Pressing, Series } from "./types";
 
 /**
  * The phone's own copy of the collection (IndexedDB). Everything in the app reads
@@ -10,6 +10,8 @@ interface KeeperDB extends DBSchema {
   movies: { key: string; value: Movie; indexes: { tmdb_id: number; dirty: number } };
   copies: { key: string; value: Copy; indexes: { movie_id: string; barcode: string; dirty: number } };
   hunts: { key: string; value: Hunt; indexes: { dirty: number } };
+  albums: { key: string; value: Album; indexes: { dirty: number } };
+  pressings: { key: string; value: Pressing; indexes: { album_id: string; barcode: string; dirty: number } };
   meta: { key: string; value: unknown };
 }
 
@@ -17,8 +19,16 @@ let dbPromise: Promise<IDBPDatabase<KeeperDB>> | null = null;
 
 export function openKeeper() {
   if (!dbPromise) {
-    dbPromise = openDB<KeeperDB>("keeper", 2, {
+    dbPromise = openDB<KeeperDB>("keeper", 3, {
       upgrade(db, oldVersion) {
+        if (oldVersion < 3) {
+          // Records (v3): albums and their pressings.
+          db.createObjectStore("albums", { keyPath: "id" }).createIndex("dirty", "dirty");
+          const p = db.createObjectStore("pressings", { keyPath: "id" });
+          p.createIndex("album_id", "album_id");
+          p.createIndex("barcode", "barcode");
+          p.createIndex("dirty", "dirty");
+        }
         if (oldVersion < 2) {
           const hunts = db.createObjectStore("hunts", { keyPath: "id" });
           hunts.createIndex("dirty", "dirty");
@@ -107,13 +117,40 @@ export async function pendingCount(): Promise<number> {
   return (
     (await db.countFromIndex("movies", "dirty", 1)) +
     (await db.countFromIndex("copies", "dirty", 1)) +
-    (await db.countFromIndex("hunts", "dirty", 1))
+    (await db.countFromIndex("hunts", "dirty", 1)) +
+    (await db.countFromIndex("albums", "dirty", 1)) +
+    (await db.countFromIndex("pressings", "dirty", 1))
   );
 }
 
 export async function allHunts(): Promise<Hunt[]> {
   const rows = await (await openKeeper()).getAll("hunts");
   return rows.filter((h) => !h.deleted);
+}
+
+// ---------- records ----------
+
+export async function allAlbums(): Promise<Album[]> {
+  return (await (await openKeeper()).getAll("albums")).filter((a) => !a.deleted);
+}
+export async function allPressings(): Promise<Pressing[]> {
+  return (await (await openKeeper()).getAll("pressings")).filter((p) => !p.deleted);
+}
+export async function getAlbum(id: string) {
+  const a = await (await openKeeper()).get("albums", id);
+  return a && !a.deleted ? a : undefined;
+}
+export async function pressingsFor(albumId: string): Promise<Pressing[]> {
+  return (await (await openKeeper()).getAllFromIndex("pressings", "album_id", albumId)).filter((p) => !p.deleted);
+}
+export async function pressingsByBarcode(barcode: string): Promise<Pressing[]> {
+  return (await (await openKeeper()).getAllFromIndex("pressings", "barcode", barcode)).filter((p) => !p.deleted);
+}
+/** Find an album we own by its Discogs master (or release) id. */
+export async function albumByDiscogs(master: number | null, release: number | null): Promise<Album | undefined> {
+  return (await allAlbums()).find(
+    (a) => (master != null && a.discogs_master_id === master) || (release != null && a.discogs_master_id == null && a.discogs_release_id === release),
+  );
 }
 
 // ---------- writes (always mark dirty so the next sync pushes them) ----------
@@ -141,8 +178,13 @@ export async function saveHunt(h: Omit<Hunt, "updated_at" | "updated_by" | "dirt
   return row;
 }
 
-export async function addHunt(hit: { tmdb_id: number | null; title: string; year: number | null; poster_path: string | null }, notes: string | null = null) {
-  const existing = (await allHunts()).find((h) => !h.found && ((hit.tmdb_id && h.tmdb_id === hit.tmdb_id) || h.title === hit.title));
+export async function addHunt(
+  hit: { tmdb_id: number | null; title: string; year: number | null; poster_path: string | null; kind?: "movie" | "album"; artist?: string | null; discogs_id?: number | null; cover_url?: string | null },
+  notes: string | null = null,
+) {
+  const existing = (await allHunts()).find(
+    (h) => !h.found && ((hit.tmdb_id && h.tmdb_id === hit.tmdb_id) || (hit.discogs_id && h.discogs_id === hit.discogs_id) || (h.title === hit.title && (h.artist ?? null) === (hit.artist ?? null))),
+  );
   if (existing) return existing;
   return saveHunt({
     id: uuid(),
@@ -154,8 +196,24 @@ export async function addHunt(hit: { tmdb_id: number | null; title: string; year
     found: false,
     found_by: null,
     added_by: (await getMeta("deviceName")) ?? null,
+    kind: hit.kind ?? "movie",
+    artist: hit.artist ?? null,
+    discogs_id: hit.discogs_id ?? null,
+    cover_url: hit.cover_url ?? null,
     deleted: false,
   });
+}
+
+/** Adding an album you were hunting for marks the hunt found. */
+export async function markAlbumHuntsFound(discogsId: number | null, artist: string | null, title: string) {
+  const norm = (t: string | null | undefined) => (t ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  for (const h of await allHunts()) {
+    if (h.found || h.kind !== "album") continue;
+    if ((discogsId && h.discogs_id === discogsId) || (norm(h.title) === norm(title) && norm(h.artist) === norm(artist))) {
+      const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = h;
+      await saveHunt({ ...rest, found: true, found_by: (await getMeta("deviceName")) ?? null });
+    }
+  }
 }
 
 /** Adding a movie you were hunting for marks the hunt found. */
@@ -168,6 +226,28 @@ export async function markHuntsFound(tmdbId: number | null, title: string) {
       await saveHunt({ ...rest, found: true, found_by: (await getMeta("deviceName")) ?? null });
     }
   }
+}
+
+export async function saveAlbum(a: Omit<Album, "updated_at" | "updated_by" | "dirty">) {
+  const row: Album = { ...a, ...(await stamp()) };
+  await (await openKeeper()).put("albums", row);
+  notifyChanged();
+  return row;
+}
+export async function savePressing(p: Omit<Pressing, "updated_at" | "updated_by" | "dirty">) {
+  const row: Pressing = { ...p, ...(await stamp()) };
+  await (await openKeeper()).put("pressings", row);
+  notifyChanged();
+  return row;
+}
+export async function deletePressing(p: Pressing) {
+  const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = p;
+  await savePressing({ ...rest, deleted: true });
+}
+export async function deleteAlbum(a: Album) {
+  for (const p of await pressingsFor(a.id)) await deletePressing(p);
+  const { updated_at: _u, updated_by: _b, dirty: _d, ...rest } = a;
+  await saveAlbum({ ...rest, deleted: true });
 }
 
 export async function deleteCopy(c: Copy) {

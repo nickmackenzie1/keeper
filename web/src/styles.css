@@ -946,3 +946,60 @@ input:focus-visible { outline: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .pending-sweep { display: none; }
 }
+
+/* =====================================================================
+   Records
+   ===================================================================== */
+.cover { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-sm); display: flex; align-items: flex-end; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover-title { position: relative; padding: 10px; display: flex; flex-direction: column; gap: 2px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.cover-title b { font-family: var(--font-head); text-transform: var(--head-transform, none); font-size: 15px; line-height: 1.05; }
+.cover-title span { font-size: 11px; opacity: .85; }
+.list-row .cover.thumb { width: 56px; height: 56px; flex-shrink: 0; }
+.list-row .cover.thumb .cover-title { display: none; }
+.cover-grid .cover { border-radius: 0; }
+[data-skin="marquee"] .cover-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 560px) { [data-skin="marquee"] .cover-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.record-cover { width: min(100%, 360px); margin: 0 auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.record-artist { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+[data-skin="marquee"] .record-artist { font-family: var(--mono); font-weight: 600; color: #fff; }
+.record-page h2 { margin: 0; }
+.hunt-cover { width: 100%; }
+.chip[data-format="vinyl"] { background: var(--chip-bd-bg); color: var(--chip-bd-fg); }
+.chip[data-format="cassette"], .chip[data-format="cd"] { background: var(--neutral-bg); color: var(--neutral-fg); }
+
+/* The movies / music switch */
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.mode-switch button { min-height: 44px; border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 15px; cursor: pointer; }
+.mode-switch button.on { background: var(--text); color: var(--bg); }
+[data-skin="marquee"] .mode-switch { border-radius: 2px; border-color: rgba(255,255,255,.4); }
+[data-skin="marquee"] .mode-switch button { font-family: var(--font-head); font-weight: 400; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+[data-skin="marquee"] .mode-switch button.on { background: #fff; color: #050505; }
+
+/* A record's reveal shows the sleeve itself above the word */
+.reveal-record .reveal-center { top: 12%; }
+.reveal-sleeve { width: min(52vw, 240px); box-shadow: 0 24px 60px rgba(0,0,0,.6); animation: rv-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; border-radius: 2px; }
+
+/* =====================================================================
+   v1.2 — Poster type: the heavy, tight grotesk of a minimalist film poster
+   (big black headline, small all-caps credits underneath).
+   ===================================================================== */
+[data-skin="marquee"] { --font-head: "Inter Tight", "Helvetica Neue", Arial, sans-serif; }
+[data-skin="marquee"] .zone-title, [data-skin="marquee"] h2, [data-skin="marquee"] h3,
+[data-skin="marquee"] .btn.primary, [data-skin="marquee"] .hero-scan-title, [data-skin="marquee"] .start-tile-title,
+[data-skin="marquee"] .mode-switch button, [data-skin="marquee"] .tabbar a span, [data-skin="marquee"] .poster-title,
+[data-skin="marquee"] .scan-word, [data-skin="marquee"] .reveal .btn, [data-skin="marquee"] .btn.add-btn,
+[data-skin="marquee"] .foot-word, [data-skin="marquee"] .cover-title b, .setup-go, .setup-word {
+  font-family: "Inter Tight", "Helvetica Neue", Arial, sans-serif; font-weight: 900; letter-spacing: -0.02em;
+}
+.zone-title { letter-spacing: -0.03em; }
+.zone-screen .zone-title { font-size: min(40px, 10vw); }
+.zone-chapter .zone-title { font-size: min(40px, 10vw); }
+[data-skin="marquee"] .tabbar a span { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; }
+[data-skin="marquee"] .btn.primary, [data-skin="marquee"] .reveal .btn { font-size: 16px; letter-spacing: 0; }
+[data-skin="marquee"] .hero-scan-title { font-size: 28px; }
+[data-skin="marquee"] .mode-switch button { font-size: 15px; letter-spacing: 0.02em; }
+.setup-word { letter-spacing: -0.04em; font-size: clamp(56px, 19vw, 104px); }
+.setup-go { font-size: 18px; letter-spacing: 0; }
+/* The credits block: tiny caps labels, then the names, like the bottom of a poster */
+.zone-kicker { font-weight: 600; letter-spacing: 0.22em; }

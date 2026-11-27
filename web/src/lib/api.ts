@@ -1,6 +1,6 @@
 import { getMeta } from "./db";
 import { rememberHits } from "./hits";
-import type { BarcodeLookup, Series, ShelfSpine, TmdbHit } from "./types";
+import type { AlbumHit, BarcodeLookup, PressingInfo, RecordLookup, Series, ShelfSpine, TmdbHit } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -83,8 +83,31 @@ export const tmdbDetails = (id: number) => api<TmdbHit & { runtime: number | nul
 export const fetchSeries = () => api<{ series: Series[] }>("/series").then((r) => r.series);
 
 /** `store`: this scan happened in a store, so log it for rarity tracking. */
+/** Barcode → a movie (TMDB candidates) or, if Discogs knows it, a record. */
+export const lookupAny = (upc: string, store = false) =>
+  api<BarcodeLookup | RecordLookup>(`/barcode/${encodeURIComponent(upc)}${store ? "?store=1" : ""}`).then((r) => {
+    if (r.kind !== "album") rememberHits(r.candidates);
+    return r;
+  });
+
+/** Barcode → movie only (a record barcode comes back with no candidates). */
 export const lookupBarcode = (upc: string, store = false) =>
-  api<BarcodeLookup>(`/barcode/${encodeURIComponent(upc)}${store ? "?store=1" : ""}`).then((r) => { rememberHits(r.candidates); return r; });
+  lookupAny(upc, store).then((r): BarcodeLookup => (r.kind === "album" ? { barcode: r.barcode, product_title: null, format: null, candidates: [] } : r));
+
+// ---------- records (Discogs, through the server) ----------
+const albumMemo = new Map<string, Promise<AlbumHit[]>>();
+export const searchRecords = (q: string) => {
+  const key = q.trim().toLowerCase();
+  let p = albumMemo.get(key);
+  if (!p) {
+    p = api<{ results: AlbumHit[] }>(`/records/search?q=${encodeURIComponent(q.trim())}`, { timeoutMs: 15_000 }).then((r) => r.results);
+    albumMemo.set(key, p);
+    p.catch(() => albumMemo.delete(key));
+  }
+  return p;
+};
+export const recordMaster = (id: number) => api<AlbumHit>(`/records/master/${id}`);
+export const recordRelease = (id: number) => api<{ album: AlbumHit; pressing: PressingInfo }>(`/records/release/${id}`);
 
 export const shelfScan = (imageB64: string) =>
   api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg" }) }).then((r) => r.spines);
@@ -103,6 +126,6 @@ export const listDevices = () =>
   );
 
 export const diagnostics = () =>
-  api<{ tmdb: string; barcode: string; ai: string; version: string }>("/diagnostics", { timeoutMs: 30_000 });
+  api<{ tmdb: string; barcode: string; records?: string; ai: string; version: string }>("/diagnostics", { timeoutMs: 30_000 });
 
 export const moviePosters = (tmdbId: number) => api<{ posters: string[] }>(`/movie/${tmdbId}/posters`).then((r) => r.posters);

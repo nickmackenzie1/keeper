@@ -40,7 +40,7 @@ export function ZoneTitle({
 
 /** Screen heading: a zone title in Marquee, a plain h1 in the other skins. */
 // Every screen is a file in the Library, like a location card in a government building.
-const FILE_NO: Record<string, string> = { Check: "01", Collection: "02", "Hunt list": "03", Stats: "04", Settings: "05", "Add a disc": "06", "Movie night": "07" };
+const FILE_NO: Record<string, string> = { Check: "01", Collection: "02", "Hunt list": "03", Stats: "04", Settings: "05", "Add a disc": "06", "Movie night": "07", "Add a record": "08" };
 
 export function ScreenTitle({ title, kicker }: { title: string; kicker?: string }) {
   if (currentSkin() !== "marquee") return <h1>{title}</h1>;

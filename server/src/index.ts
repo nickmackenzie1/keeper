@@ -9,7 +9,7 @@ import { lookupRouter, outbound, tmdbFetch } from "./lookup.js";
 import { eventsRouter } from "./events.js";
 import { pushRouter, flushDigests } from "./push.js";
 import { colourAlbums, colourMovies, enrichMovies, seriesRouter } from "./enrich.js";
-import { discogs, recordsRouter, shareRecords } from "./discogs.js";
+import { discogs, recordsRouter, shareRecords, shareWants } from "./discogs.js";
 import { shelfRouter } from "./shelf.js";
 
 // Docker on Synology often has no IPv6; trying IPv6 first makes outside requests hang.
@@ -29,7 +29,7 @@ app.get("/api/share/records", (req, res) => {
   const given = String(req.query.token ?? "") || (req.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!config.shareToken) { res.status(503).json({ error: "sharing is off — set SHARE_TOKEN in .env" }); return; }
   if (given !== config.shareToken) { res.status(401).json({ error: "unauthorized" }); return; }
-  res.json({ records: shareRecords(), generated_at: Date.now() });
+  res.json({ records: shareRecords(), wants: shareWants(), generated_at: Date.now() });
 });
 
 app.use("/api", (req, res, next) => {

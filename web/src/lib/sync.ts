@@ -1,6 +1,6 @@
 import { api, ApiError } from "./api";
 import { deviceId, getMeta, notifyChanged, openKeeper, setMeta } from "./db";
-import type { Copy, Hunt, Movie } from "./types";
+import type { Album, Copy, Hunt, Movie, Pressing } from "./types";
 
 /**
  * Two-way sync with the Keeper server. Used by the page AND the service worker
@@ -26,7 +26,13 @@ interface SyncResponse {
   cursor: number;
   server_time: number;
   applied: { accepted: number; rejected: number };
-  changes: { movies: Omit<Movie, "dirty">[]; copies: Omit<Copy, "dirty">[]; hunts?: Omit<Hunt, "dirty">[] };
+  changes: {
+    movies: Omit<Movie, "dirty">[];
+    copies: Omit<Copy, "dirty">[];
+    hunts?: Omit<Hunt, "dirty">[];
+    albums?: Omit<Album, "dirty">[];
+    pressings?: Omit<Pressing, "dirty">[];
+  };
 }
 
 const strip = <T extends { dirty: number }>({ dirty: _d, ...rest }: T) => rest;
@@ -44,6 +50,8 @@ async function runSync(): Promise<SyncResult> {
   const dirtyMovies = await db.getAllFromIndex("movies", "dirty", 1);
   const dirtyCopies = await db.getAllFromIndex("copies", "dirty", 1);
   const dirtyHunts = await db.getAllFromIndex("hunts", "dirty", 1);
+  const dirtyAlbums = await db.getAllFromIndex("albums", "dirty", 1);
+  const dirtyPressings = await db.getAllFromIndex("pressings", "dirty", 1);
 
   let res: SyncResponse;
   try {
@@ -53,7 +61,13 @@ async function runSync(): Promise<SyncResult> {
         device_id: id,
         device_name: name,
         cursor,
-        changes: { movies: dirtyMovies.map(strip), copies: dirtyCopies.map(strip), hunts: dirtyHunts.map(strip) },
+        changes: {
+          movies: dirtyMovies.map(strip),
+          copies: dirtyCopies.map(strip),
+          hunts: dirtyHunts.map(strip),
+          albums: dirtyAlbums.map(strip),
+          pressings: dirtyPressings.map(strip),
+        },
       }),
     }, token);
   } catch (e) {
@@ -62,14 +76,15 @@ async function runSync(): Promise<SyncResult> {
 
   // What we sent, by id → updated_at, so we can clear `dirty` only if it wasn't edited again meanwhile.
   const sent = new Map<string, number>();
-  for (const r of [...dirtyMovies, ...dirtyCopies, ...dirtyHunts]) sent.set(r.id, r.updated_at);
+  for (const r of [...dirtyMovies, ...dirtyCopies, ...dirtyHunts, ...dirtyAlbums, ...dirtyPressings]) sent.set(r.id, r.updated_at);
 
-  const tx = db.transaction(["movies", "copies", "hunts"], "readwrite");
-  const stores = { movies: tx.objectStore("movies"), copies: tx.objectStore("copies"), hunts: tx.objectStore("hunts") } as const;
+  const TABLES = ["movies", "copies", "hunts", "albums", "pressings"] as const;
+  const tx = db.transaction([...TABLES], "readwrite");
 
-  for (const table of ["movies", "copies", "hunts"] as const) {
-    const store = stores[table];
-    const incoming = (res.changes[table] ?? []) as (Movie | Copy | Hunt)[];
+  for (const table of TABLES) {
+    const store = tx.objectStore(table);
+    if (res.changes[table] === undefined) continue; // an older server that doesn't know this table: leave it alone
+    const incoming = (res.changes[table] ?? []) as (Movie | Copy | Hunt | Album | Pressing)[];
 
     if (res.full) {
       // Keep local edits made after we sent this request; replace everything else.
@@ -97,9 +112,9 @@ async function runSync(): Promise<SyncResult> {
   // If the server rejected one of our edits (someone edited it later), resync fully next time.
   await setMeta("forceFull", res.applied.rejected > 0);
 
-  const pulled = res.changes.movies.length + res.changes.copies.length + (res.changes.hunts?.length ?? 0);
+  const pulled = TABLES.reduce((n, t) => n + (res.changes[t]?.length ?? 0), 0);
   if (pulled > 0 || res.full) notifyChanged("remote");
-  return { ok: true, full: res.full, pulled, pushed: dirtyMovies.length + dirtyCopies.length + dirtyHunts.length };
+  return { ok: true, full: res.full, pulled, pushed: dirtyMovies.length + dirtyCopies.length + dirtyHunts.length + dirtyAlbums.length + dirtyPressings.length };
 }
 
 let inFlight: Promise<SyncResult> | null = null;

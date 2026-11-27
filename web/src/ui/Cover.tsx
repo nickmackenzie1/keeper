@@ -1,10 +1,10 @@
 import { useState } from "preact/hooks";
 import { tint } from "./util";
 
-type Props = { album: { title: string; artist?: string | null; cover_url?: string | null; cover_bg?: string | null }; class?: string; badge?: string };
+type Props = { album: { title: string; artist?: string | null; cover_url?: string | null; cover_bg?: string | null }; class?: string; badge?: string; no?: string };
 
 /** A square record sleeve: the Discogs cover, or a coloured sleeve with the title when there isn't one. */
-export function Cover({ album, class: cls = "", badge }: Props) {
+export function Cover({ album, class: cls = "", badge, no }: Props) {
   const [failed, setFailed] = useState(false);
   return (
     <div class={`cover ${cls}`} style={{ background: album.cover_bg ?? tint(album.title) }}>
@@ -17,6 +17,7 @@ export function Cover({ album, class: cls = "", badge }: Props) {
         </span>
       )}
       {badge && <span class="poster-badge">{badge}</span>}
+      {no && <span class="poster-no">{no}</span>}
     </div>
   );
 }

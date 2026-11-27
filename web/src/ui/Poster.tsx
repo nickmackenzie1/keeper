@@ -2,10 +2,10 @@ import { useState } from "preact/hooks";
 import { posterUrl, type Movie } from "../lib/types";
 import { tint } from "./util";
 
-type Props = { movie: Pick<Movie, "title" | "poster_path" | "year"> & { poster_bg?: string | null }; size?: "w185" | "w342" | "w500"; class?: string; badge?: string };
+type Props = { movie: Pick<Movie, "title" | "poster_path" | "year"> & { poster_bg?: string | null }; size?: "w185" | "w342" | "w500"; class?: string; badge?: string; no?: string };
 
 /** TMDB poster, or a coloured title card when there's no poster / no signal. */
-export function Poster({ movie, size = "w342", class: cls = "", badge }: Props) {
+export function Poster({ movie, size = "w342", class: cls = "", badge, no }: Props) {
   const [failed, setFailed] = useState(false);
   const src = posterUrl(movie.poster_path, size);
   return (
@@ -19,6 +19,7 @@ export function Poster({ movie, size = "w342", class: cls = "", badge }: Props) 
         </>
       )}
       {badge && <span class="poster-badge">{badge}</span>}
+      {no && <span class="poster-no">{no}</span>}
     </div>
   );
 }

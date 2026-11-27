@@ -5,6 +5,11 @@ import { copiesFor, deleteCopy, deleteMovie, getMovie, saveCopy } from "../lib/d
 import { FORMATS, FORMAT_LABEL, FORMAT_RANK, FORMAT_SHORT, type Copy } from "../lib/types";
 import { Poster } from "./Poster";
 import { Redacted } from "./Redacted";
+import { useEffect } from "preact/hooks";
+import { movieCredits, type Credits } from "../lib/api";
+import { catalogueData } from "../lib/db";
+import { catalogue, fmtNo } from "../lib/catalogue";
+import type { Movie } from "../lib/types";
 import { IconTrash } from "./icons";
 import { go, useData } from "./util";
 import { Person } from "./Person";
@@ -66,6 +71,8 @@ export function MovieDetail({ id }: { id: string }) {
         </ul>
         <a class="btn block" href={`#/add?movie=${movie.id}`}>+ Add another copy</a>
 
+        <Billing movie={movie} copies={sorted} />
+
         <button
           class="btn danger block"
           onClick={async () => {
@@ -126,5 +133,35 @@ function CopyEditor({ copy }: { copy: Copy }) {
         </div>
       )}
     </li>
+  );
+}
+
+/** The bottom of a film poster: the title, then who made it in tiny caps, then your copy's catalogue number. */
+function Billing({ movie, copies }: { movie: Movie; copies: Copy[] }) {
+  const [credits, setCredits] = useState<Credits | null | "pending">(movie.tmdb_id ? "pending" : null);
+  const no = useData(async () => { const d = await catalogueData(); return catalogue(d.movies, d.copies, d.albums, d.pressings).get(movie.id); }, [movie.id]);
+  useEffect(() => {
+    if (!movie.tmdb_id) return;
+    let alive = true;
+    movieCredits(movie.tmdb_id).then((c) => alive && setCredits(c)).catch(() => alive && setCredits(null));
+    return () => void (alive = false);
+  }, [movie.tmdb_id]);
+  const rows: [string, string[]][] = credits && credits !== "pending"
+    ? [["Directed by", credits.directed], ["Written by", credits.written], ["Starring", credits.starring], ["Music by", credits.music], ["Photographed by", credits.photographed], ["Produced by", credits.produced]]
+    : [];
+  const where = [...new Set(copies.map((c) => c.location).filter(Boolean))].join(", ");
+  return (
+    <section class="billing" aria-label="Credits">
+      <p class="billing-title">{movie.title}</p>
+      {credits === "pending" && <Redacted label="Credits pending" lines={3} />}
+      {rows.filter(([, v]) => v.length).map(([k, v]) => (
+        <p key={k} class="billing-row"><span>{k}</span> {v.join("  ")}</p>
+      ))}
+      <p class="billing-foot">
+        {[movie.year, no ? fmtNo(no) : null, copies.map((c) => FORMAT_LABEL[c.format]).join(" + ") || null, where || null, movie.certification].filter(Boolean).map((x, i) => (
+          <span key={i} class={String(x).startsWith("No.") ? "billing-no" : ""}>{x}</span>
+        ))}
+      </p>
+    </section>
   );
 }

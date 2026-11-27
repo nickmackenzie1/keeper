@@ -114,8 +114,9 @@ export const searchRecords = (q: string) => {
 export const recordMaster = (id: number) => api<AlbumHit>(`/records/master/${id}`);
 export const recordRelease = (id: number) => api<{ album: AlbumHit; pressing: PressingInfo }>(`/records/release/${id}`);
 
-export const shelfScan = (imageB64: string) =>
-  api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg" }) }).then((r) => r.spines);
+/** `store`: this photo was taken in a store (counts toward rare finds); false when cataloguing your own shelf. */
+export const shelfScan = (imageB64: string, store = true) =>
+  api<{ spines: ShelfSpine[] }>("/shelf", { method: "POST", body: JSON.stringify({ image: imageB64, media_type: "image/jpeg", store }), timeoutMs: 120_000 }).then((r) => r.spines);
 
 /** One case photographed up close → what disc is it? `store`: count it as a store sighting. */
 export const coverScan = (imageB64: string, store: boolean) =>
@@ -134,3 +135,24 @@ export const diagnostics = () =>
   api<{ tmdb: string; barcode: string; records?: string; ai: string; version: string }>("/diagnostics", { timeoutMs: 30_000 });
 
 export const moviePosters = (tmdbId: number) => api<{ posters: string[] }>(`/movie/${tmdbId}/posters`).then((r) => r.posters);
+
+export interface Credits { directed: string[]; written: string[]; starring: string[]; music: string[]; produced: string[]; photographed: string[] }
+const creditsMemo = new Map<number, Promise<Credits>>();
+/** The billing block for a movie page. Remembered on this phone so it shows offline next time. */
+const ls = () => (globalThis as { localStorage?: { getItem(k: string): string | null; setItem(k: string, v: string): void } }).localStorage;
+export const movieCredits = (tmdbId: number): Promise<Credits> => {
+  let p = creditsMemo.get(tmdbId);
+  if (!p) {
+    const key = `credits-${tmdbId}`;
+    p = api<Credits>(`/movie/${tmdbId}/credits`).then((c) => {
+      try { ls()?.setItem(key, JSON.stringify(c)); } catch { /* full */ }
+      return c;
+    }).catch((e) => {
+      creditsMemo.delete(tmdbId);
+      try { const saved = ls()?.getItem(key); if (saved) return JSON.parse(saved) as Credits; } catch { /* none */ }
+      throw e;
+    });
+    creditsMemo.set(tmdbId, p);
+  }
+  return p;
+};

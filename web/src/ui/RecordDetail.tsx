@@ -4,11 +4,13 @@ import { Cover } from "./Cover";
 import { Person } from "./Person";
 import { IconTrash } from "./icons";
 import { go, useData } from "./util";
-import { deleteAlbum, deletePressing, getAlbum, pressingsFor, savePressing } from "../lib/db";
+import { catalogueData, deleteAlbum, deletePressing, getAlbum, pressingsFor, savePressing } from "../lib/db";
+import { catalogue, fmtNo } from "../lib/catalogue";
 import { RECORD_FORMATS, RECORD_LABEL, RECORD_SHORT, type Pressing } from "../lib/types";
 
 export function RecordDetail({ id }: { id: string }) {
   const data = useData(async () => ({ album: await getAlbum(id), pressings: await pressingsFor(id) }), [id]);
+  const no = useData(async () => { const d = await catalogueData(); return catalogue(d.movies, d.copies, d.albums, d.pressings).get(id); }, [id]);
   if (!data) return <Skeleton />;
   const { album, pressings } = data;
   if (!album) {
@@ -36,7 +38,7 @@ export function RecordDetail({ id }: { id: string }) {
       <div class="screen-body">
         <Cover album={album} class="record-cover" />
         <div class="stack">
-          <span class="record-artist">{album.artist ?? "Unknown artist"}</span>
+          <span class="record-artist">{album.artist ?? "Unknown artist"}{no ? <span class="billing-no"> · {fmtNo(no)}</span> : null}</span>
           <h2>{album.title}</h2>
           <span class="muted">{[album.year, album.genres, album.styles].filter(Boolean).join(" · ")}</span>
           <div class="row wrap">{pressings.map((p) => <span key={p.id} class="chip" data-format={p.format}>{RECORD_SHORT[p.format]}</span>)}</div>

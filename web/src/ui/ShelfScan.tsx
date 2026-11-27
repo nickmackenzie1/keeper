@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, shelfScan } from "../lib/api";
 import { celebrate, toast } from "../lib/celebrate";
 import { addHunt, allCopies, allMovies, copiesFor, movieByTmdb } from "../lib/db";
+import { addDisc } from "../lib/collection";
+import { FORMATS } from "../lib/types";
+import { log } from "../lib/log";
 import { judge, matchHunt, normalizeTitle, type VerdictKind } from "../lib/verdict";
 import { FORMAT_LABEL, type Format, type Hunt, type Movie, type ShelfSpine } from "../lib/types";
 import { Poster } from "./Poster";
@@ -68,7 +71,7 @@ async function evaluate(spines: ShelfSpine[]): Promise<Row[]> {
 
 const LOADING = ["Reading the spines…", "Squinting at tiny fonts…", "Checking your collection…", "Looking for treasure…"];
 
-export function ShelfScan({ onClose }: { onClose: () => void }) {
+export function ShelfScan({ onClose, initialMode = "store" }: { onClose: () => void; initialMode?: "store" | "home" }) {
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -77,6 +80,38 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hunted, setHunted] = useState<Set<string>>(new Set());
+  // "home": cataloguing your own shelf (everything new is ticked); "store": hunting at a thrift store.
+  const [mode, setMode] = useState<"store" | "home">(initialMode);
+  const [picked, setPicked] = useState<Map<string, Format>>(new Map());
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const keyOf = (r: Row) => (r.spine.match ? `t${r.spine.match.tmdb_id}` : `n${r.spine.title}`);
+  const fmtOf = (r: Row): Format => (r.spine.format !== "unknown" && r.spine.format in FORMAT_LABEL ? (r.spine.format as Format) : "dvd");
+  const toggle = (r: Row) => {
+    const m = new Map(picked);
+    m.has(keyOf(r)) ? m.delete(keyOf(r)) : m.set(keyOf(r), fmtOf(r));
+    setPicked(m);
+  };
+  const setFmt = (r: Row, f: Format) => setPicked(new Map(picked).set(keyOf(r), f));
+
+  /** Add every ticked disc at once. Each saves instantly; details fill in afterwards. */
+  const addPicked = async () => {
+    const todo = (rows ?? []).filter((r) => picked.has(keyOf(r)) && !added.has(keyOf(r)));
+    const done = new Set(added);
+    for (const r of todo) {
+      const format = picked.get(keyOf(r))!;
+      try {
+        if (r.spine.match) await addDisc({ tmdb: r.spine.match, format, edition: r.spine.edition });
+        else await addDisc({ manual: { title: r.spine.title, year: r.spine.year }, format, edition: r.spine.edition });
+        done.add(keyOf(r));
+      } catch (e) {
+        log("error", `Shelf add ${r.spine.title}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    setAdded(done);
+    setPicked(new Map());
+    toast(`Added ${todo.length} to the collection`);
+    if (todo.length >= 5) celebrate();
+  };
 
   useEffect(() => {
     if (!busy) return;
@@ -92,9 +127,14 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
     try {
       const { b64, preview } = await preparePhoto(file);
       setPreview(preview);
-      const spines = await shelfScan(b64);
+      const spines = await shelfScan(b64, mode === "store");
       const r = await evaluate(spines);
       setRows(r);
+      setAdded(new Set());
+      // At home, everything new is ticked (except titles the AI wasn't sure of).
+      setPicked(mode === "home"
+        ? new Map(r.filter((x) => x.kind === "not_owned" && x.spine.confidence !== "low").map((x) => [x.spine.match ? `t${x.spine.match.tmdb_id}` : `n${x.spine.title}`, x.spine.format !== "unknown" && x.spine.format in FORMAT_LABEL ? (x.spine.format as Format) : "dvd"]))
+        : new Map());
       if (r.some((x) => x.hunt)) celebrate();
     } catch (e) {
       setError(
@@ -129,7 +169,12 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
     const display = m ?? { title: r.spine.title, year: r.spine.year, poster_path: null };
     const key = m ? String(m.tmdb_id) : r.spine.title;
     return (
-      <li class="shelf-row">
+      <li class={`shelf-row ${picked.has(keyOf(r)) ? "picked" : ""}`}>
+        {actions && (r.kind === "not_owned" || r.kind === "upgrade") && (
+          added.has(keyOf(r))
+            ? <span class="pick-done" aria-label="Added">✓</span>
+            : <input type="checkbox" class="pick" aria-label={`Add ${display.title}`} checked={picked.has(keyOf(r))} onChange={() => toggle(r)} />
+        )}
         <Poster movie={display} size="w185" class="thumb" />
         <div class="stack grow">
           <b>
@@ -147,7 +192,14 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
               {r.tags.map((t) => <span key={t.label} class={`tag tag-${t.tone}`}>{t.label}</span>)}
             </div>
           )}
-          {actions && (
+          {actions && picked.has(keyOf(r)) && (
+            <div class="seg seg-small" role="group" aria-label="Format">
+              {FORMATS.filter((f) => f !== "other").map((f) => (
+                <button key={f} type="button" class={picked.get(keyOf(r)) === f ? "on" : ""} aria-pressed={picked.get(keyOf(r)) === f} onClick={() => setFmt(r, f)}>{FORMAT_LABEL[f]}</button>
+              ))}
+            </div>
+          )}
+          {actions && !picked.has(keyOf(r)) && !added.has(keyOf(r)) && (
             <div class="row">
               <a class="btn small" href={addHref(r)} onClick={onClose}>Bought it</a>
               {!r.hunt && r.kind === "not_owned" && (
@@ -193,7 +245,15 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
 
         {!busy && !rows && (
           <>
-            <p>Take a photo of a shelf with the spines facing you. Library reads the titles and tells you what's worth grabbing: hunt list matches, collector editions, rare finds, upgrades and gaps in your series.</p>
+            <div class="mode-switch" role="tablist" aria-label="Where are you">
+              <button role="tab" aria-selected={mode === "store"} class={mode === "store" ? "on" : ""} onClick={() => setMode("store")}>At a store</button>
+              <button role="tab" aria-selected={mode === "home"} class={mode === "home" ? "on" : ""} onClick={() => setMode("home")}>Adding my shelf</button>
+            </div>
+            <p>
+              {mode === "store"
+                ? "Photograph a shelf with the spines facing you. Library reads the titles and shows what's worth grabbing: hunt list matches, collector editions, rare finds, upgrades and gaps in your series."
+                : "Photograph one of your own shelves. Library reads every spine and ticks everything that isn't in the collection yet. Check the formats, then add them all at once."}
+            </p>
             <button class="btn primary block" onClick={() => camera.current?.click()}>Take a photo</button>
             <button class="btn block" onClick={() => library.current?.click()}>Choose from photos</button>
             <p class="muted">Tip: one shelf at a time, straight on, in good light. Uses about 1–3¢ of AI per photo.</p>
@@ -228,6 +288,11 @@ export function ShelfScan({ onClose }: { onClose: () => void }) {
           <button class="btn block" onClick={() => { setRows(null); setPreview(null); camera.current?.click(); }}>Scan another shelf</button>
         )}
       </div>
+      {picked.size > 0 && (
+        <div class="bulk-bar">
+          <button class="btn primary block" onClick={() => void addPicked()}>Add {picked.size} to the collection</button>
+        </div>
+      )}
     </div>
   );
 }

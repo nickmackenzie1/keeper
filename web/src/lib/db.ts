@@ -288,3 +288,9 @@ export function onChanged(fn: (src: ChangeSource) => void) {
 export async function myName(): Promise<string> {
   return (await getMeta("deviceName")) || "Me";
 }
+
+/** Everything the catalogue numbers are worked out from. */
+export async function catalogueData() {
+  const [movies, copies, albums, pressings] = await Promise.all([allMovies(), allCopies(), allAlbums(), allPressings()]);
+  return { movies, copies, albums, pressings };
+}

@@ -2,8 +2,10 @@ import { ScreenTitle, ZoneTitle } from "./Zone";
 import { currentSkin } from "./skins";
 import { Skeleton } from "./Skeleton";
 import { useMemo, useState } from "preact/hooks";
-import { allAlbums, allCopies, allMovies, allPressings } from "../lib/db";
+import { allAlbums, allCopies, allMovies, allPressings, catalogueData } from "../lib/db";
+import { catalogue, fmtNo } from "../lib/catalogue";
 import { Cover } from "./Cover";
+import { ShelfScan } from "./ShelfScan";
 import type { JSX } from "preact";
 import { normalizeTitle } from "../lib/verdict";
 import { FORMAT_RANK, FORMAT_SHORT, type Album, type Copy, type Format, type Movie, type Pressing, type RecordFormat } from "../lib/types";
@@ -56,6 +58,7 @@ const RFILTERS: [RFilter, string][] = [["all", "All"], ["vinyl", "Vinyl"], ["cd"
 
 function MusicShelf({ toggle }: { toggle: JSX.Element }) {
   const data = useData(async () => ({ albums: await allAlbums(), pressings: await allPressings() }));
+  const nos = useData(async () => { const d = await catalogueData(); return catalogue(d.movies, d.copies, d.albums, d.pressings); });
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<RFilter>("all");
   const byAlbum = useMemo(() => {
@@ -100,7 +103,7 @@ function MusicShelf({ toggle }: { toggle: JSX.Element }) {
       {list.map((a) => (
         <li key={a.id}>
           <a href={`#/record/${a.id}`} aria-label={`${a.artist ? a.artist + ", " : ""}${a.title}`}>
-            <Cover album={a} badge={badge(a)} />
+            <Cover album={a} badge={badge(a)} no={fmtNo(nos?.get(a.id))} />
           </a>
         </li>
       ))}
@@ -151,8 +154,10 @@ function MusicShelf({ toggle }: { toggle: JSX.Element }) {
 
 function MovieShelf({ toggle }: { toggle: JSX.Element }) {
   const data = useData(async () => ({ movies: await allMovies(), copies: await allCopies() }));
+  const nos = useData(async () => { const d = await catalogueData(); return catalogue(d.movies, d.copies, d.albums, d.pressings); });
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [photoAdd, setPhotoAdd] = useState(false);
   const [grid, setGrid] = useState<boolean | null>(null);
 
   const byMovie = useMemo(() => {
@@ -233,6 +238,10 @@ function MovieShelf({ toggle }: { toggle: JSX.Element }) {
       </header>
 
       <div class="screen-body">
+        <button class="movie-night photo-add" onClick={() => setPhotoAdd(true)}>
+          <b>Add a whole shelf</b>
+          <span class="muted">Photograph your shelf, tick what's new, add it all at once</span>
+        </button>
         {data && data.movies.length > 1 && (
           <a class="movie-night" href="#/tonight">
             <b>Movie night</b>
@@ -258,7 +267,7 @@ function MovieShelf({ toggle }: { toggle: JSX.Element }) {
                 {movies.map((m) => (
                   <li key={m.id}>
                     <a href={`#/movie/${m.id}`} aria-label={`${m.title}${m.year ? `, ${m.year}` : ""}`}>
-                      <Poster movie={m} badge={badge(m)} />
+                      <Poster movie={m} badge={badge(m)} no={fmtNo(nos?.get(m.id))} />
                     </a>
                   </li>
                 ))}
@@ -270,7 +279,7 @@ function MovieShelf({ toggle }: { toggle: JSX.Element }) {
             {shown.map((m) => (
               <li key={m.id}>
                 <a href={`#/movie/${m.id}`} aria-label={m.title}>
-                  <Poster movie={m} badge={badge(m)} />
+                  <Poster movie={m} badge={badge(m)} no={fmtNo(nos?.get(m.id))} />
                   <span class="grid-cap">{m.year ?? ""}</span>
                 </a>
               </li>
@@ -301,6 +310,7 @@ function MovieShelf({ toggle }: { toggle: JSX.Element }) {
           </ul>
         )}
       </div>
+      {photoAdd && <ShelfScan initialMode="home" onClose={() => setPhotoAdd(false)} />}
     </div>
   );
 }

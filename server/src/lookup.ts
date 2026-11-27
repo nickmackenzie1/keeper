@@ -164,6 +164,29 @@ lookupRouter.get("/movie/:tmdbId", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/** GET /api/movie/:tmdbId/credits — the poster billing block: director, writers, stars, music. */
+const creditsCache = new Map<number, unknown>();
+lookupRouter.get("/movie/:tmdbId/credits", async (req, res, next) => {
+  try {
+    const id = Number(req.params.tmdbId);
+    if (!creditsCache.has(id)) {
+      const c = await tmdb(`/movie/${id}/credits`);
+      const crew = (c.crew ?? []) as { job: string; name: string }[];
+      const names = (jobs: string[], n: number) => [...new Set(crew.filter((p) => jobs.includes(p.job)).map((p) => p.name))].slice(0, n);
+      creditsCache.set(id, {
+        directed: names(["Director"], 2),
+        written: names(["Screenplay", "Writer", "Story", "Novel"], 3),
+        starring: ((c.cast ?? []) as { name: string }[]).slice(0, 5).map((p) => p.name),
+        music: names(["Original Music Composer", "Music"], 2),
+        produced: names(["Producer"], 3),
+        photographed: names(["Director of Photography"], 1),
+      });
+      if (creditsCache.size > 400) creditsCache.delete(creditsCache.keys().next().value!);
+    }
+    res.json(creditsCache.get(id));
+  } catch (e) { next(e); }
+});
+
 /** GET /api/movie/:tmdbId/posters — alternative posters to choose from. */
 lookupRouter.get("/movie/:tmdbId/posters", async (req, res, next) => {
   try {
